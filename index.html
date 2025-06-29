@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Abhaysai Vemula</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=VT323&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <!-- Navigation Bar -->
+    <header class="navbar">
+      <div id="nav-div" class="nav-container hidden">
+        <nav>
+          <ul class="nav-links">
+            <li class="nav-item"><a href="#home">Home</a></li>
+            <li class="nav-item"><a href="#about">About Me</a></li>
+            <li class="nav-item"><a href="#education">Education</a></li>
+            <li class="nav-item"><a href="#experience">Experience</a></li>
+            <li class="nav-item"><a href="#projects">Projects</a></li>
+          </ul>
+        </nav>
+      </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section id="home">
+      <div class="intro-screen">
+        <h1 id="typewriter"></h1>
+
+        <div class="icon-row hidden" id="icon-row">
+          <a
+            href="https://www.linkedin.com/in/abhaysaivemula/"
+            target="_blank"
+            class="icon-button"
+          >
+            <img
+              src="assets/LinkedIn_Icon.png"
+              alt="LinkedIn"
+              class="icon-img"
+            />
+          </a>
+          <a
+            href="https://github.com/abhaysaiv0618/"
+            target="_blank"
+            class="icon-button"
+          >
+            <img src="assets/github_icon.png" alt="GitHub" class="icon-img" />
+          </a>
+        </div>
+
+        <a
+          href="https://drive.google.com/file/d/1_P_Vul7ayv86hIpFPcro3LGZR2Vlr54k/view?usp=sharing"
+          target="_blank"
+          class="button hidden"
+          id="resume-button"
+          >Resume</a
+        >
+      </div>
+    </section>
+
+    <!-- About Me Section -->
+    <section id="about" class="about-section">
+  <div class="section-container">
+      <div class="about-container">
+        <div class="about-text">
+          <h2>About Me</h2>
+          <p>
+            Welcome to my website! I am a Software Engineer working at Bank of
+            America and a Computer Science & Business Analytics and Information
+            Technology (BAIT) graduate from Rutgers University Honors College...
+          </p>
+          <p>
+            My experiences both at work and in university have greatly refined
+            my technical skills and provided me with valuable insights. I have
+            taken graduate-level classes in Artificial Intelligence and Advanced
+            Data Management which have challenged me to think of creative
+            solutions but also provided me with a "foot in the door" into the
+            future of the technology ecosystem. This coupled with the rising
+            importance of AI in our daily lives, has led me to hope to pursue a
+            career where I can be at the forefront of these emerging
+            technologies.
+          </p>
+          <p>
+            If you have any questions or want to chat, feel free to reach out!
+            Email: abhaysai.vemula@gmail.com
+          </p>
+        </div>
+        <div class="about-image">
+          <img src="assets/profile.png" alt="Photo of Abhaysai Vemula" />
+        </div>
+      </div>
+    </section>
+
+    <!-- Education Section -->
+    <section id="education" class="education-section">
+  <div class="section-container">
+      <div class="education-container">
+        <div class="education-image">
+          <img src="assets/rutgers-honors.png" alt="Rutgers Honors College" />
+        </div>
+        <div class="education-content">
+          <h1 class="section-title">Education</h1>
+          <h3>Rutgers University Honors College, New Brunswick</h3>
+          <h4>Bachelors of Science, Computer Science and Business Analytics & Information Technology </h4>
+           <p class="edu-subsection">
+            <strong>Honors:</strong> Summa Cum Laude, Presidential Scholarship Award Recipient (< 1% acceptance rate), Dean’s List (All Semesters)</p>
+          <p class="edu-subsection">
+            <strong>Relevant Coursework:</strong> Artificial Intelligence (Graduate Level), Advanced Data Management (Graduate Level), Computer Algorithms, Data Structures, Computer Architecture, Software Methodology Discrete Structures, Time Series Modeling
+          </p>
+          <p class="edu-subsection">
+            <strong>Activities:</strong> RES, BITS, RUAIR, Sigma Beta Rho
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Experience Section -->
+    <section class="experience-section" id="experience">
+  <div class="section-container">
+      <div class="experience-section-div">
+        <h2 class="section-title">Experience</h2>
+        <div class="timeline">
+          <div class="timeline-entry left">
+            <div class="content">
+              <h3>Software Engineer</h3>
+              <h4>Bank of America</h4>
+              <p><em>July 2025 - Ongoing</em></p>
+            </div>
+          </div>
+          <div class="rocket-connector left">
+            <img src="assets/rocket.png" alt="Rocket Connector" />
+          </div>
+          <div class="timeline-entry right">
+            <div class="content">
+              <h3>Software Engineer Intern</h3>
+              <h4>Bank of America</h4>
+              <p><em>June 2024 - Aug 2024</em></p>
+            </div>
+          </div>
+          <div class="rocket-connector right">
+            <img src="assets/rocket.png" alt="Rocket Connector" />
+          </div>
+          <div class="timeline-entry left">
+            <div class="content">
+              <h3>Software Engineer Intern</h3>
+              <h4>Mastercard</h4>
+              <p><em>June 2023 - Aug 2023</em></p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Projects Section -->
+    <section id="projects" class="projects-section">
+  <div class="section-container">
+      <div class="projects-section-div">
+        <h2 class="section-title">Projects</h2>
+
+        <div class="project-grid">
+          <div class="project-entry">
+            <h4>
+              PathNet: CNN-Based Path Prediction in Simulated Environments
+            </h4>
+            <p><em>Python, PyTorch, Matplotlib</em></p>
+            <a
+              href="https://github.com/abhaysaiv0618/Target-Pursuit-Machine-Learning-Model-"
+              target="_blank"
+              >Project Link</a
+            >
+          </div>
+
+          <div class="project-entry">
+            <h4>Bayesian Pathfinding AI for Probabilistic Decision-Making</h4>
+            <p><em>Python, Matplotlib</em></p>
+            <a
+              href="https://github.com/abhaysaiv0618/Pathfinding-AI-Bayesian-Decision-Making-Agent"
+              target="_blank"
+              >Project Link</a
+            >
+          </div>
+
+          <div class="project-entry">
+            <h4>Text Summarizer</h4>
+            <p><em> Python, JavaScript, HTML, CSS, Flask, NLTK, Heapq</em></p>
+
+            <a href="https://github.com/abhaysaiv0618/Text-Summarizer"
+            target="_blank"
+              >Project Link</a
+            >
+          </div>
+
+          <div class="project-entry">
+            <h4>Random Knights</h4>
+            <p><em>JavaScript, HTML, CSS, Object Oriented Programming</em></p>
+            <a href="https://github.com/abhaysaiv0618/Random-Knights"
+            target="_blank"
+              >Project Link</a
+            >
+          </div>
+
+          <div class="project-entry">
+            <h4>BirthdayiMessageBot</h4>
+            <p><em>Python, Py-Imessage, CronJob</em></p>
+            <a href="https://github.com/abhaysaiv0618/BirthdayiMessageBot"
+            target="_blank"
+              >Project Link</a
+            >
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <div class="footer-item">
+        <a href="#">Abhaysai Vemula</a>
+      </div>
+    </footer>
+
+    <script src="script.js"></script>
+  </body>
+</html>
