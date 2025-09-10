@@ -52,3 +52,78 @@ body {
 .motion-safe\:animate-caret {
   animation: caret 1s steps(1) infinite;
 }
+
+.glow {
+  text-shadow: 0 6px 24px rgba(124, 58, 237, 0.35),
+    0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+/* Radial reveal utilities */
+.radial-container {
+  position: relative;
+}
+
+/* The hero element will carry this class + a data-state attribute */
+.radial-reveal {
+  /* Circle set via CSS custom properties; default tiny */
+  clip-path: circle(
+    var(--reveal-r, 0px) at var(--reveal-x, 50%) var(--reveal-y, 50%)
+  );
+  transition: clip-path 560ms cubic-bezier(0.2, 0.7, 0.2, 1), opacity 240ms ease;
+  /* --- Radial reveal performance hint --- */
+  will-change: clip-path, opacity;
+}
+
+/* Visibility by state */
+.radial-reveal[data-state="graph"] {
+  opacity: 0;
+  pointer-events: none;
+}
+.radial-reveal[data-state="revealing"] {
+  opacity: 1;
+}
+.radial-reveal[data-state="revealing"] .hero-content {
+  opacity: 0 !important;
+  visibility: hidden;
+  transition: none;
+}
+.radial-reveal[data-state="hero"] {
+  clip-path: none; /* fully revealed */
+  opacity: 1;
+}
+.radial-reveal[data-state="hero"] .hero-content {
+  opacity: 1 !important;
+  visibility: visible;
+  transition: opacity 300ms ease-in-out;
+}
+
+/* Reduce-motion: no animation, show immediately */
+@media (prefers-reduced-motion: reduce) {
+  .radial-reveal {
+    transition: none !important;
+    clip-path: none !important;
+  }
+  .radial-reveal .hero-content {
+    transition: none !important;
+    opacity: 1 !important;
+  }
+}
+
+/* Loading effect for smooth transitions */
+.loading-overlay {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at var(--reveal-x, 50%) var(--reveal-y, 50%),
+    rgba(124, 58, 237, 0.1) 0%,
+    transparent 70%
+  );
+  pointer-events: none;
+  z-index: 15;
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+
+.loading-overlay.active {
+  opacity: 1;
+}
