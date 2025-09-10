@@ -9,16 +9,31 @@ interface Node {
   href: string;
 }
 
+export type GraphNavProps = {
+  onSelect?: (node: Node, centerPx: { x: number; y: number }) => void;
+};
+
 interface Position {
   x: number;
   y: number;
 }
 
-export default function GraphNav() {
-  const containerRef = useRef<HTMLDivElement>(null);
+interface EdgePoint {
+  x: number;
+  y: number;
+}
+
+interface Edge {
+  start: EdgePoint;
+  end: EdgePoint;
+}
+
+export default function GraphNav({ onSelect }: GraphNavProps = {}) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const nodeRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const [mounted, setMounted] = useState(false);
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
-  const [nodePositions, setNodePositions] = useState<Position[]>([]);
+  const [edges, setEdges] = useState<Edge[]>([]);
   const router = useRouter();
 
   const nodes: Node[] = [
@@ -79,133 +94,236 @@ export default function GraphNav() {
     return positions;
   };
 
+  // Geometry helper: normalize vector and compute trimmed edge points
+  const computeTrimmedEdge = (
+    centerX: number,
+    centerY: number,
+    nodeX: number,
+    nodeY: number,
+    centerRadius: number,
+    nodeRadius: number,
+    padding: number = 2
+  ): Edge => {
+    const dx = nodeX - centerX;
+    const dy = nodeY - centerY;
+    const length = Math.sqrt(dx * dx + dy * dy);
+
+    // Guard against zero-length vectors
+    if (length === 0) {
+      return { start: { x: centerX, y: centerY }, end: { x: nodeX, y: nodeY } };
+    }
+
+    // Unit vector
+    const ux = dx / length;
+    const uy = dy / length;
+
+    // Trimmed endpoints
+    const startX = centerX + ux * (centerRadius + padding);
+    const startY = centerY + uy * (centerRadius + padding);
+    const endX = nodeX - ux * (nodeRadius + padding);
+    const endY = nodeY - uy * (nodeRadius + padding);
+
+    return {
+      start: { x: startX, y: startY },
+      end: { x: endX, y: endY },
+    };
+  };
+
+  // Compute edges based on actual node measurements
+  const computeEdges = () => {
+    if (!positions || positions.length < 2) {
+      setEdges([]);
+      return;
+    }
+
+    const centerNode = nodeRefs.current[nodes[0].id];
+    if (!centerNode) {
+      setEdges([]);
+      return;
+    }
+
+    const centerRect = centerNode.getBoundingClientRect();
+    const containerRect = containerRef.current?.getBoundingClientRect();
+    if (!containerRect) return;
+
+    const centerX = centerRect.left - containerRect.left + centerRect.width / 2;
+    const centerY = centerRect.top - containerRect.top + centerRect.height / 2;
+    const centerRadius = centerRect.height / 2;
+
+    const newEdges: Edge[] = [];
+
+    // Compute edges to all other nodes
+    for (let i = 1; i < nodes.length; i++) {
+      const node = nodeRefs.current[nodes[i].id];
+      if (!node) continue;
+
+      const nodeRect = node.getBoundingClientRect();
+      const nodeX = nodeRect.left - containerRect.left + nodeRect.width / 2;
+      const nodeY = nodeRect.top - containerRect.top + nodeRect.height / 2;
+      const nodeRadius = nodeRect.height / 2;
+
+      const edge = computeTrimmedEdge(
+        centerX,
+        centerY,
+        nodeX,
+        nodeY,
+        centerRadius,
+        nodeRadius
+      );
+
+      // Guard against NaN values
+      if (
+        isFinite(edge.start.x) &&
+        isFinite(edge.start.y) &&
+        isFinite(edge.end.x) &&
+        isFinite(edge.end.y)
+      ) {
+        newEdges.push(edge);
+      }
+    }
+
+    setEdges(newEdges);
+  };
+
   // Mount guard for SSR safety
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Handle container resize
+  // Handle container size measurement with ResizeObserver
   useEffect(() => {
-    if (!mounted) return;
+    if (!containerRef.current) return;
+    const el = containerRef.current;
 
-    const updateSize = () => {
-      if (containerRef.current) {
-        const { width, height } = containerRef.current.getBoundingClientRect();
-        setContainerSize({ width, height });
-        setNodePositions(calculatePositions(width, height));
-      }
-    };
+    // initial read
+    let frame = requestAnimationFrame(() => {
+      const { width, height } = el.getBoundingClientRect();
+      const w = Math.round(width),
+        h = Math.round(height);
+      setContainerSize((prev) =>
+        prev.width === w && prev.height === h ? prev : { width: w, height: h }
+      );
+    });
 
-    // Initial size calculation
-    updateSize();
-
-    // Set up ResizeObserver
-    const resizeObserver = new ResizeObserver(updateSize);
-    if (containerRef.current) {
-      resizeObserver.observe(containerRef.current);
-    }
-
-    // Also listen to window resize as fallback
-    window.addEventListener("resize", updateSize);
+    // observe subsequent resizes
+    const ro = new ResizeObserver((entries) => {
+      const cr = entries[0].contentRect;
+      const w = Math.round(cr.width),
+        h = Math.round(cr.height);
+      setContainerSize((prev) =>
+        prev.width === w && prev.height === h ? prev : { width: w, height: h }
+      );
+    });
+    ro.observe(el);
 
     return () => {
-      resizeObserver.disconnect();
-      window.removeEventListener("resize", updateSize);
+      cancelAnimationFrame(frame);
+      ro.disconnect();
     };
-  }, [mounted]);
+  }, []);
+
+  // Derive node positions from container size using useMemo
+  const positions = useMemo(() => {
+    if (containerSize.width === 0 || containerSize.height === 0) return null;
+    return calculatePositions(containerSize.width, containerSize.height);
+  }, [containerSize.width, containerSize.height]);
+
+  // Compute edges after nodes are mounted and positions are available
+  useEffect(() => {
+    if (!mounted || !positions || positions.length === 0) return;
+
+    // Compute edges after a brief delay to ensure nodes are rendered
+    const timeoutId = setTimeout(computeEdges, 10);
+    return () => clearTimeout(timeoutId);
+  }, [mounted, positions]);
 
   // Handle node click
-  const handleNodeClick = (href: string) => {
-    router.push(href);
+  const handleNodeClick = (node: Node) => {
+    if (node.id === "home" && onSelect) {
+      // For home node, compute center position and call onSelect
+      const containerRect = containerRef.current?.getBoundingClientRect();
+      const nodeElement = nodeRefs.current[node.id];
+
+      if (containerRect && nodeElement) {
+        const rect = nodeElement.getBoundingClientRect();
+        const x = rect.left - containerRect.left + rect.width / 2;
+        const y = rect.top - containerRect.top + rect.height / 2;
+        onSelect(node, { x, y });
+      }
+    } else {
+      // For other nodes, navigate normally
+      router.push(node.href);
+    }
   };
 
   // Handle keyboard navigation
-  const handleKeyDown = (event: React.KeyboardEvent, href: string) => {
+  const handleKeyDown = (event: React.KeyboardEvent, node: Node) => {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
-      router.push(href);
+      handleNodeClick(node);
     }
   };
-
-  // Render SVG edges
-  const renderEdges = () => {
-    if (nodePositions.length < 2) return null;
-
-    const centerNode = nodePositions[0];
-    const edgeNodes = nodePositions.slice(1);
-
-    return (
-      <svg
-        className="absolute inset-0 w-full h-full text-purple-400/50 dark:text-purple-300/40"
-        style={{ pointerEvents: "none" }}
-      >
-        {edgeNodes.map((node, index) => (
-          <line
-            key={`edge-${index}`}
-            x1={centerNode.x}
-            y1={centerNode.y}
-            x2={node.x}
-            y2={node.y}
-            stroke="currentColor"
-            strokeWidth="1"
-            className="transition-opacity duration-200"
-          />
-        ))}
-      </svg>
-    );
-  };
-
-  // SSR-safe placeholder
-  if (!mounted) {
-    return (
-      <div
-        aria-hidden
-        className="relative w-full h-[500px] md:h-[600px] lg:h-[700px]"
-        style={{ minHeight: "400px" }}
-      />
-    );
-  }
 
   return (
     <div
       ref={containerRef}
-      className="relative w-full h-[500px] md:h-[600px] lg:h-[700px]"
-      style={{ minHeight: "400px" }}
+      className="relative w-full h-[520px] md:h-[600px] lg:h-[680px]"
     >
-      {/* SVG Edges */}
-      {renderEdges()}
+      {/* SVG Edges Layer */}
+      <svg
+        className="pointer-events-none absolute inset-0 w-full h-full z-10 text-purple-400/60 dark:text-purple-300/50"
+        style={{ pointerEvents: "none" }}
+      >
+        {edges.map((edge, index) => (
+          <line
+            key={`edge-${index}`}
+            x1={edge.start.x}
+            y1={edge.start.y}
+            x2={edge.end.x}
+            y2={edge.end.y}
+            stroke="currentColor"
+            strokeWidth={1.5}
+            strokeLinecap="round"
+            className="transition-opacity duration-200"
+          />
+        ))}
+      </svg>
 
-      {/* Node Buttons */}
-      {nodePositions.map((position, index) => {
-        const node = nodes[index];
-        const isHome = index === 0;
+      {/* Node Buttons Layer */}
+      <div className="absolute inset-0 z-20">
+        {positions &&
+          positions.map((position, index) => {
+            const node = nodes[index];
+            const isHome = index === 0;
 
-        return (
-          <button
-            key={node.id}
-            className={`
-              absolute rounded-full px-4 py-3 text-sm md:text-base
-              bg-white/90 dark:bg-neutral-900/90 
-              text-neutral-900 dark:text-neutral-100 
-              shadow-sm border border-neutral-200/70 dark:border-neutral-800/70
-              transition-transform motion-safe:duration-200 motion-safe:ease-out
-              hover:motion-safe:scale-110 focus:motion-safe:scale-110
-              shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500
-              ${isHome ? "font-semibold" : ""}
-            `}
-            style={{
-              left: position.x - 50, // Center the button (assuming ~100px width)
-              top: position.y - 20, // Center the button (assuming ~40px height)
-              transform: "translate(-50%, -50%)", // Perfect centering
-            }}
-            onClick={() => handleNodeClick(node.href)}
-            onKeyDown={(e) => handleKeyDown(e, node.href)}
-            aria-label={`Navigate to ${node.label}`}
-          >
-            {node.label}
-          </button>
-        );
-      })}
+            return (
+              <button
+                key={node.id}
+                ref={(el) => (nodeRefs.current[node.id] = el)}
+                className={`
+                  absolute rounded-full px-4 py-3 text-sm md:text-base
+                  bg-white/90 dark:bg-neutral-900/90 
+                  text-neutral-900 dark:text-neutral-100 
+                  shadow-sm border border-neutral-200/70 dark:border-neutral-800/70
+                  transition-transform motion-safe:duration-200 motion-safe:ease-out
+                  hover:motion-safe:scale-110 focus:motion-safe:scale-110
+                  shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500
+                  ${isHome ? "font-semibold" : ""}
+                `}
+                style={{
+                  left: position.x - 50, // Center the button (assuming ~100px width)
+                  top: position.y - 20, // Center the button (assuming ~40px height)
+                  transform: "translate(-50%, -50%)", // Perfect centering
+                }}
+                onClick={() => handleNodeClick(node)}
+                onKeyDown={(e) => handleKeyDown(e, node)}
+                aria-label={`Navigate to ${node.label}`}
+              >
+                {node.label}
+              </button>
+            );
+          })}
+      </div>
     </div>
   );
 }

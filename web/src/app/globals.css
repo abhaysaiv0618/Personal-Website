@@ -43,3 +43,12 @@ body {
     ),
     #0b0613; /* deep purple base */
 }
+
+@keyframes caret {
+  50% {
+    opacity: 0;
+  }
+}
+.motion-safe\:animate-caret {
+  animation: caret 1s steps(1) infinite;
+}
