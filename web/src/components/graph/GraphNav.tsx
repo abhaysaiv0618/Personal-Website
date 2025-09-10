@@ -375,9 +375,16 @@ export default function GraphNav({
     >
       {/* SVG Edges Layer */}
       <svg
-        className="pointer-events-none absolute inset-0 w-full h-full z-10 text-purple-400/60 dark:text-purple-300/50"
+        className="pointer-events-none absolute inset-0 w-full h-full z-10"
         style={{ pointerEvents: "none" }}
       >
+        <defs>
+          <linearGradient id="starGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#ffd700" stopOpacity="0.8" />
+            <stop offset="50%" stopColor="#ffed4e" stopOpacity="0.6" />
+            <stop offset="100%" stopColor="#ffd700" stopOpacity="0.4" />
+          </linearGradient>
+        </defs>
         {!edgesDisabled &&
           edges.map((edge, index) => (
             <line
@@ -386,8 +393,8 @@ export default function GraphNav({
               y1={edge.start.y}
               x2={edge.end.x}
               y2={edge.end.y}
-              stroke="currentColor"
-              strokeWidth={1.5}
+              stroke="url(#starGradient)"
+              strokeWidth={2}
               strokeLinecap="round"
               className="transition-opacity duration-200"
             />
@@ -409,18 +416,20 @@ export default function GraphNav({
                 key={node.id}
                 ref={(el) => (nodeRefs.current[node.id] = el)}
                 className={`
-                  absolute rounded-full px-4 py-3 text-sm md:text-base
-                  bg-white/90 dark:bg-neutral-900/90 
-                  text-neutral-900 dark:text-neutral-100 
-                  shadow-sm border border-neutral-200/70 dark:border-neutral-800/70
-                  transition-colors motion-safe:duration-200 motion-safe:ease-out
-                  hover:bg-purple-500 hover:text-white focus:bg-purple-500 focus:text-white
-                  shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500
+                  absolute rounded-full w-20 h-20 flex items-center justify-center
+                  text-xs font-medium whitespace-nowrap
+                  star-node
+                  ${isHome ? "home" : ""}
+                  ${isAnimating ? "spinning" : ""}
+                  text-white
+                  transition-all motion-safe:duration-200 motion-safe:ease-out
+                  hover:scale-110 focus:scale-110
+                  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400
                   ${isHome ? "font-semibold" : ""}
                 `}
                 style={{
-                  left: animatedPosition.x - 50, // Center the button (assuming ~100px width)
-                  top: animatedPosition.y - 20, // Center the button (assuming ~40px height)
+                  left: animatedPosition.x - 40, // Center the button (w-20 = 80px, so 40px offset)
+                  top: animatedPosition.y - 40, // Center the button (h-20 = 80px, so 40px offset)
                   transform: "translate(-50%, -50%)",
                 }}
                 onClick={() => handleNodeClick(node)}

@@ -32,7 +32,7 @@ export default function Header() {
       ),
     },
     {
-      href: "/resume.pdf",
+      href: "https://drive.google.com/file/d/1_P_Vul7ayv86hIpFPcro3LGZR2Vlr54k/view?usp=sharing",
       label: "Resume",
       icon: (
         <svg
