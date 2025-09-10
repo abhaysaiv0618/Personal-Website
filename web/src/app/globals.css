@@ -24,3 +24,22 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.purple-space {
+  background: radial-gradient(
+      1200px 800px at 50% 0%,
+      rgba(124, 58, 237, 0.2),
+      transparent 60%
+    ),
+    radial-gradient(
+      900px 600px at 10% 80%,
+      rgba(147, 51, 234, 0.18),
+      transparent 60%
+    ),
+    radial-gradient(
+      900px 600px at 90% 70%,
+      rgba(99, 102, 241, 0.18),
+      transparent 60%
+    ),
+    #0b0613; /* deep purple base */
+}
