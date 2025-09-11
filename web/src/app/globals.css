@@ -185,10 +185,10 @@ body {
 
 @keyframes star-brightness {
   0% {
-    filter: brightness(1) drop-shadow(0 0 10px rgba(255, 215, 0, 0.6));
+    filter: brightness(1) drop-shadow(0 0 15px rgba(255, 215, 0, 0.8));
   }
   100% {
-    filter: brightness(1.5) drop-shadow(0 0 25px rgba(255, 215, 0, 0.9));
+    filter: brightness(2) drop-shadow(0 0 40px rgba(255, 215, 0, 1));
   }
 }
 
@@ -304,4 +304,48 @@ body {
 
 .loading-overlay.active {
   opacity: 1;
+}
+
+/* Satellites spin animation
+   We apply the class 'satellites-spin-<key>' to the satellites container to restart this animation. */
+[class*="satellites-spin-"] {
+  transform: rotate(0deg);
+  animation: satellites-spin 600ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+@keyframes satellites-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Graph wheel animation
+   We apply the class 'spin-<key>' to the wheel to restart this animation. */
+.graph-wheel {
+  transform: rotate(0deg);
+  transform-origin: 50% 50%;
+}
+
+/* Unique selector per key guarantees reflow + restart */
+[class*="spin-"].graph-wheel {
+  animation: graph-wheel-spin 600ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+@keyframes graph-wheel-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  [class*="spin-"].graph-wheel {
+    animation: none !important;
+  }
 }
