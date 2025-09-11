@@ -2,6 +2,11 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
+import AboutMePage from "../../app/about-me/page";
+import EducationPage from "../../app/education/page";
+import ExperiencePage from "../../app/experience/page";
+import ProjectsPage from "../../app/projects/page";
+import ContactPage from "../../app/contact/page";
 
 export type NavNode = { id: string; label: string; href: string };
 export type GraphNavProps = {
@@ -45,6 +50,7 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
     x: number;
     y: number;
   }>({ x: 0, y: 0 });
+  const [showContent, setShowContent] = useState(false);
 
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -154,8 +160,14 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
       document.activeElement.blur();
     }
 
-    // For HOME: spin, then notify parent to perform the radial reveal
+    // For HOME: close any open content, then spin and notify parent
     if (node.id === "home") {
+      // Close any open content first
+      if (showContent) {
+        closeContent();
+        return;
+      }
+
       if (!reduced) {
         // replay spin
         setSpinKey((k) => k + 1);
@@ -200,16 +212,39 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
       if (progress < 1) {
         requestAnimationFrame(animate);
       } else {
-        // Expansion complete, notify parent
+        // Expansion complete, show content instead of navigating
         setTimeout(() => {
-          onSelect?.(node, { x: cx, y: cy });
-          setExpandingNode(null);
-          setExpansionProgress(0);
+          setShowContent(true);
         }, 200);
       }
     }
 
     requestAnimationFrame(animate);
+  }
+
+  // Render content based on selected node
+  function renderContent(node: NavNode) {
+    switch (node.id) {
+      case "about":
+        return <AboutMePage />;
+      case "education":
+        return <EducationPage />;
+      case "experience":
+        return <ExperiencePage />;
+      case "projects":
+        return <ProjectsPage />;
+      case "contact":
+        return <ContactPage />;
+      default:
+        return null;
+    }
+  }
+
+  // Close content and return to graph
+  function closeContent() {
+    setShowContent(false);
+    setExpandingNode(null);
+    setExpansionProgress(0);
   }
 
   return (
@@ -271,6 +306,42 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
           </div>
         </>
       )}
+
+      {/* Content display area */}
+      {showContent && expandingNode && (
+        <>
+          {/* Dimmed background */}
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm z-40"
+            onClick={closeContent}
+          />
+
+          {/* Content container */}
+          <div
+            className="absolute inset-0 z-50 flex items-center justify-center p-8"
+            style={{
+              clipPath: `circle(${Math.max(size.w, size.h) * 0.4}px at ${
+                expansionOrigin.x
+              }px ${expansionOrigin.y}px)`,
+            }}
+          >
+            {/* Close button */}
+            <button
+              onClick={closeContent}
+              className="absolute top-4 right-4 z-60 bg-white/10 hover:bg-white/20 text-white rounded-full w-8 h-8 flex items-center justify-center backdrop-blur-sm transition-colors"
+              aria-label="Close"
+            >
+              ×
+            </button>
+
+            {/* Scrollable content */}
+            <div className="w-full h-full overflow-y-auto bg-white/95 dark:bg-gray-900/95 rounded-lg shadow-2xl backdrop-blur-sm">
+              {renderContent(expandingNode)}
+            </div>
+          </div>
+        </>
+      )}
+
       {/* Static container for HOME only */}
       <div className="absolute inset-0">
         {/* HOME (center hub) - static, doesn't spin */}
