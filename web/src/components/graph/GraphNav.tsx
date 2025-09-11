@@ -22,7 +22,7 @@ const NODE_DIAM = 88; // button diameter (px)
 const HOME_DIAM = 104; // home size (px)
 const EDGE_STROKE = 2; // svg stroke width
 const MARGIN = 24; // min margin from container edge
-const SPIN_MS = 4000; // wheel spin duration (much longer for complex animation)
+const SPIN_MS = 5000; // wheel spin duration (much longer for complex animation)
 
 export default function GraphNav({ onSelect }: GraphNavProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -36,6 +36,7 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
   // Replayable spin key (to restart CSS animation)
   const [spinKey, setSpinKey] = useState(0);
   const [reduced, setReduced] = useState(false);
+  const [isHoveringHome, setIsHoveringHome] = useState(false);
 
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -180,7 +181,7 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
           type="button"
           className={clsx(
             "absolute -translate-x-1/2 -translate-y-1/2",
-            "rounded-full select-none text-white/95 font-medium",
+            "rounded-full select-none text-white/95 font-medium cursor-pointer",
             "shadow-[0_0_18px_rgba(255,150,50,0.35)]",
             "bg-[radial-gradient(ellipse_at_center,_rgba(255,180,80,0.95)_0%,_rgba(255,140,60,0.9)_35%,_rgba(255,120,40,0.85)_60%,_rgba(255,120,40,0.2)_100%)]",
             "backdrop-blur-[1px] border border-white/20",
@@ -194,6 +195,14 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
           }}
           aria-label="Home"
           onClick={(e) => activate(home, e.currentTarget)}
+          onMouseEnter={() => {
+            console.log("Hovering HOME - starting continuous spin");
+            setIsHoveringHome(true);
+          }}
+          onMouseLeave={() => {
+            console.log("Leaving HOME - stopping continuous spin");
+            setIsHoveringHome(false);
+          }}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
@@ -211,7 +220,8 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
           ref={wheelRef}
           className={clsx(
             "absolute inset-0",
-            !reduced && `satellites-spin-${spinKey}` // unique class to restart animation
+            !reduced && `satellites-spin-${spinKey}`, // unique class to restart animation
+            !reduced && isHoveringHome && "satellites-hover-spin" // continuous spin on hover
           )}
           style={{ transformOrigin: "50% 50%" }}
         >
@@ -239,39 +249,62 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
           </svg>
 
           {/* Satellites */}
-          {positions.map(({ node, x, y }) => (
-            <button
-              key={node.id}
-              type="button"
-              className={clsx(
-                "absolute -translate-x-1/2 -translate-y-1/2",
-                "rounded-full select-none text-white/90 font-medium",
-                "bg-[radial-gradient(ellipse_at_center,_rgba(255,230,150,0.95)_0%,_rgba(255,210,90,0.9)_40%,_rgba(255,190,70,0.85)_65%,_rgba(255,190,70,0.2)_100%)]",
-                "backdrop-blur-[1px] border border-white/15",
-                "hover:scale-[1.06] hover:bg-[radial-gradient(ellipse_at_center,_rgba(150,255,150,0.95)_0%,_rgba(100,255,100,0.9)_40%,_rgba(80,255,80,0.85)_65%,_rgba(80,255,80,0.2)_100%)]",
-                "transition-all duration-150 ease-out",
-                "focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
-              )}
-              style={{
-                left: `${x}px`,
-                top: `${y}px`,
-                width: NODE_DIAM,
-                height: NODE_DIAM,
-              }}
-              aria-label={node.label}
-              onClick={(e) => activate(node, e.currentTarget)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  activate(node, e.currentTarget);
+          {positions.map(({ node, x, y }, i) => {
+            // Simple palettes via CSS vars (no logic changes to orbit):
+            // Feel free to tweak the arrays later.
+            const hues = [32, 12, 45, 210, 165, 280]; // warm → cool variance
+            const sat = [92, 88, 85, 70, 72, 78];
+            const lum = [56, 52, 60, 58, 62, 55];
+            const H = hues[i % hues.length];
+            const S = sat[i % sat.length];
+            const L = lum[i % lum.length];
+
+            return (
+              <button
+                key={node.id}
+                type="button"
+                className={clsx(
+                  "absolute -translate-x-1/2 -translate-y-1/2",
+                  "rounded-full select-none text-white/90 font-medium cursor-pointer",
+                  "backdrop-blur-[1px] border border-white/15",
+                  "hover:scale-[1.06] transition-all duration-150 ease-out",
+                  "focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60",
+                  "planetSphere" // Add planetSphere for visual enhancements
+                )}
+                style={
+                  {
+                    left: `${x}px`,
+                    top: `${y}px`,
+                    width: NODE_DIAM,
+                    height: NODE_DIAM,
+                    // Visual palette only:
+                    // HSL base & band/texture strength:
+                    // --ph: hue, --ps: saturation, --pl: lightness
+                    // --tex: texture strength (0..1), --shine: highlight strength (0..1)
+                    // --rim: rim-light strength (0..1)
+                    "--ph": H,
+                    "--ps": `${S}%`,
+                    "--pl": `${L}%`,
+                    "--tex": 0.25,
+                    "--shine": 0.9,
+                    "--rim": 0.6,
+                  } as React.CSSProperties
                 }
-              }}
-            >
-              <span className="block w-full h-full grid place-items-center text-sm">
-                {node.label}
-              </span>
-            </button>
-          ))}
+                aria-label={node.label}
+                onClick={(e) => activate(node, e.currentTarget)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    activate(node, e.currentTarget);
+                  }
+                }}
+              >
+                <span className="block w-full h-full grid place-items-center text-sm">
+                  {node.label}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
     </div>

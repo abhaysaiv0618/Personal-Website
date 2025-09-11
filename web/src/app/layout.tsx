@@ -36,7 +36,7 @@ export default function RootLayout({
           Skip to main content
         </a>
         <Header />
-        <main id="content" className="pt-16 md:pt-20">
+        <main id="content" className="cosmos-bg pt-16 md:pt-20">
           {children}
         </main>
       </body>

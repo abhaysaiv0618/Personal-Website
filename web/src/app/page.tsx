@@ -99,7 +99,7 @@ export default function Home() {
         className={graphClasses}
         aria-hidden={view !== "graph"}
       >
-        <GraphNav key={graphKey} onSelect={handleSelect} currentView={view} />
+        <GraphNav key={graphKey} onSelect={handleSelect} />
 
         {/* Loading overlay for smooth transitions */}
         {view === "revealing" && (
@@ -133,7 +133,7 @@ export default function Home() {
         <div className="min-h-[calc(100vh-4rem)] grid place-items-center">
           <div className="hero-content text-center max-w-3xl mx-auto space-y-6 sm:space-y-8">
             <Typewriter
-              text={"Hi, I'm Abhaysai Vemula"}
+              text={"Welcome to Abhaysai Vemula's Portfolio"}
               speedMs={65}
               startDelayMs={150}
               as="h1"

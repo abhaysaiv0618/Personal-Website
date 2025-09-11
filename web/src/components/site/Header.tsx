@@ -101,7 +101,7 @@ export default function Header() {
           href="/"
           className="text-lg sm:text-xl font-semibold text-neutral-900 dark:text-neutral-100 hover:text-indigo-600 dark:hover:text-indigo-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-md px-2 py-1 transition-colors duration-200"
         >
-          Hi, I am Abhaysai Vemula
+          Welcome to Abhaysai Vemula's Portfolio
         </Link>
 
         {/* Right side - empty for balance */}

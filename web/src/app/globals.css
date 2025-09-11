@@ -26,24 +26,80 @@ body {
 }
 
 .purple-space {
-  background: radial-gradient(
-      1200px 800px at 50% 0%,
-      rgba(124, 58, 237, 0.15),
-      transparent 60%
+  background: 
+    /* Planetarium dome curvature effect */ radial-gradient(
+      ellipse 2000px 1200px at 50% 30%,
+      rgba(20, 20, 40, 0.8) 0%,
+      rgba(15, 15, 35, 0.9) 30%,
+      rgba(10, 10, 25, 0.95) 60%,
+      rgba(5, 5, 15, 1) 100%
+    ),
+    /* Deep space nebula layers */
+      radial-gradient(
+        1800px 1000px at 20% 20%,
+        rgba(124, 58, 237, 0.25),
+        rgba(80, 40, 180, 0.15) 40%,
+        transparent 70%
+      ),
+    radial-gradient(
+      1600px 800px at 80% 30%,
+      rgba(147, 51, 234, 0.2),
+      rgba(100, 30, 200, 0.12) 50%,
+      transparent 75%
     ),
     radial-gradient(
-      900px 600px at 10% 80%,
-      rgba(147, 51, 234, 0.12),
-      transparent 60%
+      1400px 600px at 60% 80%,
+      rgba(99, 102, 241, 0.18),
+      rgba(70, 70, 160, 0.1) 45%,
+      transparent 70%
     ),
-    radial-gradient(
-      900px 600px at 90% 70%,
-      rgba(99, 102, 241, 0.12),
-      transparent 60%
-    ),
-    linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
+    /* Atmospheric depth gradient */
+      radial-gradient(
+        circle 1500px at 50% 50%,
+        rgba(30, 30, 60, 0.3) 0%,
+        rgba(20, 20, 45, 0.5) 40%,
+        rgba(10, 10, 30, 0.8) 70%,
+        rgba(5, 5, 15, 1) 100%
+      ),
+    /* Base deep space */
+      linear-gradient(
+        135deg,
+        #050510 0%,
+        #0a0a1a 25%,
+        #0f0f25 50%,
+        #1a1a2e 75%,
+        #16213e 100%
+      );
   position: relative;
   overflow: hidden;
+}
+
+/* Additional planetarium dome overlay for extra depth */
+.purple-space::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: 
+    /* Subtle vignette effect for dome curvature */ radial-gradient(
+      ellipse 1800px 1000px at 50% 40%,
+      transparent 0%,
+      transparent 60%,
+      rgba(0, 0, 0, 0.1) 80%,
+      rgba(0, 0, 0, 0.2) 100%
+    ),
+    /* Atmospheric glow at edges */
+      radial-gradient(
+        circle 1200px at 50% 50%,
+        transparent 0%,
+        transparent 70%,
+        rgba(20, 20, 40, 0.1) 85%,
+        rgba(10, 10, 20, 0.2) 100%
+      );
+  pointer-events: none;
+  z-index: 1;
 }
 
 /* Twinkling stars background */
@@ -114,17 +170,29 @@ body {
   background-size: 950px 100px;
   animation: twinkle 4s cubic-bezier(0.17, 0.67, 0.12, 0.99) infinite alternate;
   pointer-events: none;
+  z-index: 2;
 }
 
 @keyframes twinkle {
   0% {
-    opacity: 0.3;
+    opacity: 0.2;
+    filter: brightness(1);
+  }
+  25% {
+    opacity: 0.6;
+    filter: brightness(1.5);
   }
   50% {
+    opacity: 1;
+    filter: brightness(3);
+  }
+  75% {
     opacity: 0.8;
+    filter: brightness(2);
   }
   100% {
-    opacity: 0.4;
+    opacity: 0.3;
+    filter: brightness(1.2);
   }
 }
 
@@ -312,7 +380,7 @@ body {
    We apply the class 'satellites-spin-<key>' to the satellites container to restart this animation. */
 [class*="satellites-spin-"] {
   transform: rotate(0deg);
-  animation: satellites-spin 4000ms cubic-bezier(0.17, 0.67, 0.12, 0.99);
+  animation: satellites-spin 5000ms cubic-bezier(0.17, 0.67, 0.12, 0.99);
 }
 
 @keyframes satellites-spin {
@@ -328,7 +396,7 @@ body {
    We apply the class 'satellites-spin-<key>' to the satellites container to restart this animation. */
 [class*="satellites-spin-"] {
   transform: rotate(0deg);
-  animation: satellites-spin 4000ms cubic-bezier(0.17, 0.67, 0.12, 0.99);
+  animation: satellites-spin 5000ms cubic-bezier(0.17, 0.67, 0.12, 0.99);
 }
 
 @keyframes satellites-spin {
@@ -340,9 +408,246 @@ body {
   }
 }
 
+/* Continuous hover spin animation */
+.satellites-hover-spin {
+  animation: satellites-hover-spin 2s linear infinite !important;
+  /* Add a subtle visual indicator for debugging */
+  box-shadow: inset 0 0 20px rgba(0, 255, 0, 0.3);
+}
+
+@keyframes satellites-hover-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* Respect reduced motion */
 @media (prefers-reduced-motion: reduce) {
   [class*="satellites-spin-"] {
     animation: none !important;
+  }
+
+  .satellites-hover-spin {
+    animation: none !important;
+  }
+}
+
+/* --- Spherical planet look on top of existing positioning --- */
+.planetSphere {
+  border-radius: 9999px;
+  overflow: hidden; /* so highlights don't bleed outside circle */
+
+  /* Base albedo using HSL vars set inline (per-planet), with gentle bands */
+  background:
+    /* subtle latitude bands */ repeating-linear-gradient(
+      0deg,
+      hsl(var(--ph) calc(var(--ps)) calc(var(--pl) + 6%)) 0 6px,
+      hsl(var(--ph) calc(var(--ps)) calc(var(--pl) + 1%)) 6px 14px
+    ),
+    radial-gradient(
+      120% 120% at 40% 35%,
+      hsl(var(--ph) calc(var(--ps)) calc(var(--pl) + 14%)) 0%,
+      hsl(var(--ph) calc(var(--ps)) calc(var(--pl) + 4%)) 35%,
+      hsl(var(--ph) calc(var(--ps)) calc(var(--pl) - 6%)) 70%,
+      hsl(var(--ph) calc(var(--ps)) calc(var(--pl) - 14%)) 100%
+    );
+
+  background-blend-mode: soft-light, normal;
+  filter: saturate(1.02) contrast(1.02);
+
+  /* The 3D-ish shadows & lights are done with pseudo-elements so text stays above */
+}
+
+/* Specular highlight (tiny glossy dot) */
+.planetSphere::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: radial-gradient(
+    circle at 35% 30%,
+    rgba(255, 255, 255, calc(0.45 * var(--shine))) 0%,
+    rgba(255, 255, 255, calc(0.25 * var(--shine))) 8%,
+    rgba(255, 255, 255, 0) 18%
+  );
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+
+/* Terminator (night side) + atmospheric rim light */
+.planetSphere::before {
+  content: "";
+  position: absolute;
+  inset: -18%;
+  border-radius: 9999px;
+  /* night side shadow */
+  background: radial-gradient(
+      120% 120% at 18% 18%,
+      rgba(0, 0, 0, 0) 45%,
+      rgba(0, 0, 0, 0.55) 72%,
+      rgba(0, 0, 0, 0.78) 100%
+    ),
+    /* rim light glow */
+      radial-gradient(
+        100% 100% at 80% 80%,
+        rgba(255, 255, 255, calc(0.25 * var(--rim))) 0%,
+        rgba(255, 255, 255, 0) 55%
+      );
+  filter: blur(6px);
+  pointer-events: none;
+  mix-blend-mode: overlay;
+}
+
+/* Slight texture intensity controlled by --tex (0..1) */
+.planetSphere {
+  --grainA: rgba(255, 255, 255, calc(0.05 * var(--tex)));
+  --grainB: rgba(0, 0, 0, calc(0.05 * var(--tex)));
+  box-shadow: inset 0 0 22px rgba(0, 0, 0, 0.24),
+    inset 8px 10px 20px rgba(255, 255, 255, 0.18);
+
+  /* micro-noise via layered shadows to avoid heavy images */
+  background-image: radial-gradient(
+      1px 1px at 12% 18%,
+      var(--grainA),
+      transparent 60%
+    ),
+    radial-gradient(1px 1px at 78% 66%, var(--grainB), transparent 60%),
+    radial-gradient(1px 1px at 44% 82%, var(--grainA), transparent 60%),
+    radial-gradient(1px 1px at 66% 28%, var(--grainB), transparent 60%),
+    radial-gradient(1px 1px at 32% 52%, var(--grainA), transparent 60%),
+    radial-gradient(
+      120% 120% at 40% 35%,
+      hsl(var(--ph) calc(var(--ps)) calc(var(--pl) + 14%)) 0%,
+      hsl(var(--ph) calc(var(--ps)) calc(var(--pl) + 4%)) 35%,
+      hsl(var(--ph) calc(var(--ps)) calc(var(--pl) - 6%)) 70%,
+      hsl(var(--ph) calc(var(--ps)) calc(var(--pl) - 14%)) 100%
+    );
+  background-blend-mode: overlay, overlay, overlay, overlay, overlay, normal;
+}
+
+/* Keep your existing .planet3d transform logic (do not touch) */
+/* .planet3d {... transforms using --base/--rotBase/--rot ...} remains intact */
+
+/* ------------- Vibrant animated cosmos background ------------- */
+/* Apply to <main class="cosmos-bg"> */
+
+.cosmos-bg {
+  position: relative;
+  overflow: clip;
+  background: radial-gradient(
+      1200px 700px at 20% 10%,
+      #3a246b 0%,
+      #1a1433 35%,
+      #0b0a19 100%
+    ),
+    radial-gradient(
+      900px 600px at 78% 85%,
+      rgba(90, 40, 120, 0.35) 0%,
+      rgba(20, 10, 40, 0) 58%
+    ),
+    radial-gradient(
+      700px 500px at 15% 80%,
+      rgba(30, 110, 160, 0.25) 0%,
+      rgba(10, 10, 25, 0) 60%
+    );
+  background-attachment: fixed;
+}
+
+/* Starfield layers (twinkle) */
+.cosmos-bg::before,
+.cosmos-bg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.cosmos-bg::before {
+  /* small stars */
+  background-image: radial-gradient(
+      1px 1px at 10% 20%,
+      rgba(255, 255, 255, 0.9),
+      transparent 50%
+    ),
+    radial-gradient(
+      1px 1px at 30% 70%,
+      rgba(255, 255, 255, 0.7),
+      transparent 50%
+    ),
+    radial-gradient(
+      1px 1px at 55% 35%,
+      rgba(255, 255, 255, 0.8),
+      transparent 50%
+    ),
+    radial-gradient(
+      1.5px 1.5px at 82% 24%,
+      rgba(255, 240, 200, 0.8),
+      transparent 55%
+    ),
+    radial-gradient(
+      1px 1px at 70% 80%,
+      rgba(190, 210, 255, 0.85),
+      transparent 55%
+    ),
+    radial-gradient(
+      1px 1px at 45% 88%,
+      rgba(255, 255, 255, 0.9),
+      transparent 55%
+    ),
+    radial-gradient(
+      1px 1px at 15% 55%,
+      rgba(210, 230, 255, 0.75),
+      transparent 55%
+    );
+  animation: twinkle 6s ease-in-out infinite alternate;
+  opacity: 0.8;
+}
+
+.cosmos-bg::after {
+  /* slow galaxy/nebula swirl (soft conic gradients + blur) */
+  background: conic-gradient(
+    from 20deg at 65% 60%,
+    rgba(140, 90, 255, 0.12),
+    rgba(255, 200, 180, 0.08),
+    rgba(80, 160, 255, 0.1),
+    rgba(140, 90, 255, 0.12)
+  );
+  filter: blur(48px) saturate(1.15);
+  mix-blend-mode: screen;
+  transform-origin: 65% 60%;
+  animation: swirl 80s linear infinite;
+  opacity: 0.7;
+}
+
+@keyframes twinkle {
+  0% {
+    opacity: 0.55;
+    filter: brightness(0.9);
+  }
+  100% {
+    opacity: 0.95;
+    filter: brightness(1.15);
+  }
+}
+
+@keyframes swirl {
+  from {
+    transform: rotate(0deg) scale(1);
+  }
+  to {
+    transform: rotate(360deg) scale(1);
+  }
+}
+
+/* Accessibility: reduce motion — keep richness but stop movement */
+@media (prefers-reduced-motion: reduce) {
+  .cosmos-bg::after {
+    animation: none;
+  }
+  .cosmos-bg::before {
+    animation: none;
   }
 }
