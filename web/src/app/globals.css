@@ -112,7 +112,7 @@ body {
     );
   background-repeat: repeat;
   background-size: 950px 100px;
-  animation: twinkle 4s ease-in-out infinite alternate;
+  animation: twinkle 4s cubic-bezier(0.17, 0.67, 0.12, 0.99) infinite alternate;
   pointer-events: none;
 }
 
@@ -166,7 +166,8 @@ body {
       transparent 30%
     );
   transform: translate(-50%, -50%);
-  animation: star-shimmer 2s ease-in-out infinite alternate;
+  animation: star-shimmer 2s cubic-bezier(0.17, 0.67, 0.12, 0.99) infinite
+    alternate;
 }
 
 @keyframes star-shimmer {
@@ -180,7 +181,8 @@ body {
 
 /* Brightness animation for spinning stars */
 .star-node.spinning {
-  animation: star-brightness 0.5s ease-in-out infinite alternate;
+  animation: star-brightness 0.5s cubic-bezier(0.17, 0.67, 0.12, 0.99) infinite
+    alternate;
 }
 
 @keyframes star-brightness {
@@ -272,7 +274,7 @@ body {
 .radial-reveal[data-state="hero"] .hero-content {
   opacity: 1 !important;
   visibility: visible;
-  transition: opacity 300ms ease-in-out;
+  transition: opacity 300ms cubic-bezier(0.17, 0.67, 0.12, 0.99);
 }
 
 /* Reduce-motion: no animation, show immediately */
@@ -310,7 +312,7 @@ body {
    We apply the class 'satellites-spin-<key>' to the satellites container to restart this animation. */
 [class*="satellites-spin-"] {
   transform: rotate(0deg);
-  animation: satellites-spin 600ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  animation: satellites-spin 4000ms cubic-bezier(0.17, 0.67, 0.12, 0.99);
 }
 
 @keyframes satellites-spin {
@@ -322,30 +324,25 @@ body {
   }
 }
 
-/* Graph wheel animation
-   We apply the class 'spin-<key>' to the wheel to restart this animation. */
-.graph-wheel {
+/* Satellites spin animation
+   We apply the class 'satellites-spin-<key>' to the satellites container to restart this animation. */
+[class*="satellites-spin-"] {
   transform: rotate(0deg);
-  transform-origin: 50% 50%;
+  animation: satellites-spin 4000ms cubic-bezier(0.17, 0.67, 0.12, 0.99);
 }
 
-/* Unique selector per key guarantees reflow + restart */
-[class*="spin-"].graph-wheel {
-  animation: graph-wheel-spin 600ms cubic-bezier(0.2, 0.7, 0.2, 1);
-}
-
-@keyframes graph-wheel-spin {
+@keyframes satellites-spin {
   from {
     transform: rotate(0deg);
   }
   to {
-    transform: rotate(360deg);
+    transform: rotate(720deg);
   }
 }
 
 /* Respect reduced motion */
 @media (prefers-reduced-motion: reduce) {
-  [class*="spin-"].graph-wheel {
+  [class*="satellites-spin-"] {
     animation: none !important;
   }
 }
