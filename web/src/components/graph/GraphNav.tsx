@@ -250,15 +250,6 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
 
           {/* Satellites */}
           {positions.map(({ node, x, y }, i) => {
-            // Simple palettes via CSS vars (no logic changes to orbit):
-            // Feel free to tweak the arrays later.
-            const hues = [32, 12, 45, 210, 165, 280]; // warm → cool variance
-            const sat = [92, 88, 85, 70, 72, 78];
-            const lum = [56, 52, 60, 58, 62, 55];
-            const H = hues[i % hues.length];
-            const S = sat[i % sat.length];
-            const L = lum[i % lum.length];
-
             return (
               <button
                 key={node.id}
@@ -266,30 +257,18 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
                 className={clsx(
                   "absolute -translate-x-1/2 -translate-y-1/2",
                   "rounded-full select-none text-white/90 font-medium cursor-pointer",
-                  "backdrop-blur-[1px] border border-white/15",
-                  "hover:scale-[1.06] transition-all duration-150 ease-out",
-                  "focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60",
-                  "planetSphere" // Add planetSphere for visual enhancements
+                  "backdrop-blur-[1px] border border-[#C0C0C0]/60",
+                  "bg-transparent hover:bg-cyan-500/20",
+                  "hover:scale-[1.06] hover:shadow-[0_0_20px_rgba(34,211,238,0.4)]",
+                  "hover:border-cyan-400/80 transition-all duration-150 ease-out",
+                  "focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
                 )}
-                style={
-                  {
-                    left: `${x}px`,
-                    top: `${y}px`,
-                    width: NODE_DIAM,
-                    height: NODE_DIAM,
-                    // Visual palette only:
-                    // HSL base & band/texture strength:
-                    // --ph: hue, --ps: saturation, --pl: lightness
-                    // --tex: texture strength (0..1), --shine: highlight strength (0..1)
-                    // --rim: rim-light strength (0..1)
-                    "--ph": H,
-                    "--ps": `${S}%`,
-                    "--pl": `${L}%`,
-                    "--tex": 0.25,
-                    "--shine": 0.9,
-                    "--rim": 0.6,
-                  } as React.CSSProperties
-                }
+                style={{
+                  left: `${x}px`,
+                  top: `${y}px`,
+                  width: NODE_DIAM,
+                  height: NODE_DIAM,
+                }}
                 aria-label={node.label}
                 onClick={(e) => activate(node, e.currentTarget)}
                 onKeyDown={(e) => {
