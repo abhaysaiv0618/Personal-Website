@@ -22,7 +22,7 @@ const NODE_DIAM = 88; // button diameter (px)
 const HOME_DIAM = 104; // home size (px)
 const EDGE_STROKE = 2; // svg stroke width
 const MARGIN = 24; // min margin from container edge
-const SPIN_MS = 600; // wheel spin duration
+const SPIN_MS = 7000; // wheel spin duration (much longer for complex animation)
 
 export default function GraphNav({ onSelect }: GraphNavProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -31,10 +31,12 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
 
   // Deterministic sizing (no loops)
   const [size, setSize] = useState<{ w: number; h: number }>({ w: 0, h: 0 });
+  const [ready, setReady] = useState(false);
 
   // Replayable spin key (to restart CSS animation)
   const [spinKey, setSpinKey] = useState(0);
   const [reduced, setReduced] = useState(false);
+  const [isHoveringHome, setIsHoveringHome] = useState(false);
 
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -114,17 +116,26 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
     });
   }, [positions, cx, cy]);
 
-  // Trigger initial spin once wheel is measurable
+  // Show content only when we have a size (prevents initial snap)
   useEffect(() => {
-    if (reduced) return;
     if (size.w > 0 && size.h > 0) {
-      // restart animation by bumping key
-      setSpinKey((k) => k + 1);
-      // clear the class after animation ends so we can replay next time
-      const t = setTimeout(() => {
-        setSpinKey((k) => k); // no-op, class will be removed by CSS end
-      }, SPIN_MS + 30);
-      return () => clearTimeout(t);
+      // Add extra delay to ensure background is fully loaded
+      const readyTimer = setTimeout(() => {
+        setReady(true);
+      }, 100);
+
+      if (!reduced) {
+        // run initial spin once after a longer delay to make it more noticeable
+        const spinTimer = setTimeout(() => {
+          setSpinKey((k) => k + 1);
+        }, 1000); // increased delay to 1000ms
+        return () => {
+          clearTimeout(readyTimer);
+          clearTimeout(spinTimer);
+        };
+      }
+
+      return () => clearTimeout(readyTimer);
     }
   }, [size.w, size.h, reduced]);
 
@@ -155,46 +166,22 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
   return (
     <div
       ref={containerRef}
-      className="relative w-full h-[65vh] sm:h-[70vh] lg:h-[72vh]"
+      className={clsx(
+        "relative w-full h-[65vh] sm:h-[70vh] lg:h-[72vh]",
+        !ready && "invisible opacity-0" // hide until centered layout is ready
+      )}
+      style={{
+        minHeight: ready ? "auto" : "65vh", // ensure container has proper height
+      }}
     >
-      {/* WHEEL: nodes + edges rotate together */}
-      <div
-        ref={wheelRef}
-        className={clsx(
-          "graph-wheel absolute inset-0",
-          !reduced && `spin-${spinKey}` // unique class to restart animation
-        )}
-        style={{ transformOrigin: "50% 50%" }}
-      >
-        {/* Edges layer (rotates with wheel) */}
-        <svg
-          ref={svgRef}
-          className="absolute inset-0 w-full h-full pointer-events-none"
-          viewBox={`0 0 ${size.w} ${size.h}`}
-          preserveAspectRatio="none"
-        >
-          <g>
-            {edges.map((e) => (
-              <line
-                key={e.id}
-                x1={e.x1}
-                y1={e.y1}
-                x2={e.x2}
-                y2={e.y2}
-                stroke="rgba(255,255,255,0.55)"
-                strokeWidth={EDGE_STROKE}
-                strokeLinecap="round"
-              />
-            ))}
-          </g>
-        </svg>
-
-        {/* HOME (center hub) */}
+      {/* Static container for HOME only */}
+      <div className="absolute inset-0">
+        {/* HOME (center hub) - static, doesn't spin */}
         <button
           type="button"
           className={clsx(
             "absolute -translate-x-1/2 -translate-y-1/2",
-            "rounded-full select-none text-white/95 font-medium",
+            "rounded-full select-none text-white/95 font-medium cursor-pointer",
             "shadow-[0_0_18px_rgba(255,150,50,0.35)]",
             "bg-[radial-gradient(ellipse_at_center,_rgba(255,180,80,0.95)_0%,_rgba(255,140,60,0.9)_35%,_rgba(255,120,40,0.85)_60%,_rgba(255,120,40,0.2)_100%)]",
             "backdrop-blur-[1px] border border-white/20",
@@ -208,6 +195,14 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
           }}
           aria-label="Home"
           onClick={(e) => activate(home, e.currentTarget)}
+          onMouseEnter={() => {
+            console.log("Hovering HOME - starting continuous spin");
+            setIsHoveringHome(true);
+          }}
+          onMouseLeave={() => {
+            console.log("Leaving HOME - stopping continuous spin");
+            setIsHoveringHome(false);
+          }}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
@@ -220,39 +215,97 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
           </span>
         </button>
 
-        {/* Satellites */}
-        {positions.map(({ node, x, y }) => (
-          <button
-            key={node.id}
-            type="button"
-            className={clsx(
-              "absolute -translate-x-1/2 -translate-y-1/2",
-              "rounded-full select-none text-white/90 font-medium",
-              "bg-[radial-gradient(ellipse_at_center,_rgba(255,230,150,0.95)_0%,_rgba(255,210,90,0.9)_40%,_rgba(255,190,70,0.85)_65%,_rgba(255,190,70,0.2)_100%)]",
-              "backdrop-blur-[1px] border border-white/15",
-              "hover:scale-[1.06] transition-transform duration-150 ease-out",
-              "focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
-            )}
-            style={{
-              left: `${x}px`,
-              top: `${y}px`,
-              width: NODE_DIAM,
-              height: NODE_DIAM,
-            }}
-            aria-label={node.label}
-            onClick={(e) => activate(node, e.currentTarget)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                activate(node, e.currentTarget);
-              }
-            }}
+        {/* Spinning container - edges + satellites spin together around HOME center */}
+        <div
+          ref={wheelRef}
+          className={clsx(
+            "absolute inset-0",
+            !reduced && `satellites-spin-${spinKey}`, // unique class to restart animation
+            !reduced && isHoveringHome && "satellites-hover-spin" // continuous spin on hover
+          )}
+          style={{ transformOrigin: "50% 50%" }}
+        >
+          {/* Edges layer (spins with satellites) */}
+          <svg
+            ref={svgRef}
+            className="absolute inset-0 w-full h-full pointer-events-none"
+            viewBox={`0 0 ${size.w} ${size.h}`}
+            preserveAspectRatio="none"
           >
-            <span className="block w-full h-full grid place-items-center text-sm">
-              {node.label}
-            </span>
-          </button>
-        ))}
+            <g>
+              {edges.map((e) => (
+                <line
+                  key={e.id}
+                  x1={e.x1}
+                  y1={e.y1}
+                  x2={e.x2}
+                  y2={e.y2}
+                  stroke="rgba(255,255,255,0.55)"
+                  strokeWidth={EDGE_STROKE}
+                  strokeLinecap="round"
+                />
+              ))}
+            </g>
+          </svg>
+
+          {/* Satellites */}
+          {positions.map(({ node, x, y }, i) => {
+            // Simple palettes via CSS vars (no logic changes to orbit):
+            // Feel free to tweak the arrays later.
+            const hues = [32, 12, 45, 210, 165, 280]; // warm → cool variance
+            const sat = [92, 88, 85, 70, 72, 78];
+            const lum = [56, 52, 60, 58, 62, 55];
+            const H = hues[i % hues.length];
+            const S = sat[i % sat.length];
+            const L = lum[i % lum.length];
+
+            return (
+              <button
+                key={node.id}
+                type="button"
+                className={clsx(
+                  "absolute -translate-x-1/2 -translate-y-1/2",
+                  "rounded-full select-none text-white/90 font-medium cursor-pointer",
+                  "backdrop-blur-[1px] border border-white/15",
+                  "hover:scale-[1.06] transition-all duration-150 ease-out",
+                  "focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60",
+                  "planetSphere" // Add planetSphere for visual enhancements
+                )}
+                style={
+                  {
+                    left: `${x}px`,
+                    top: `${y}px`,
+                    width: NODE_DIAM,
+                    height: NODE_DIAM,
+                    // Visual palette only:
+                    // HSL base & band/texture strength:
+                    // --ph: hue, --ps: saturation, --pl: lightness
+                    // --tex: texture strength (0..1), --shine: highlight strength (0..1)
+                    // --rim: rim-light strength (0..1)
+                    "--ph": H,
+                    "--ps": `${S}%`,
+                    "--pl": `${L}%`,
+                    "--tex": 0.25,
+                    "--shine": 0.9,
+                    "--rim": 0.6,
+                  } as React.CSSProperties
+                }
+                aria-label={node.label}
+                onClick={(e) => activate(node, e.currentTarget)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    activate(node, e.currentTarget);
+                  }
+                }}
+              >
+                <span className="block w-full h-full grid place-items-center text-sm">
+                  {node.label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
