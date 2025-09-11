@@ -91,7 +91,7 @@ export default function Home() {
         } as React.CSSProperties);
 
   return (
-    <section className="purple-space radial-container">
+    <section className="radial-container">
       {/* Graph layer (always mounted for measurements) */}
       <div
         ref={graphWrapRef}

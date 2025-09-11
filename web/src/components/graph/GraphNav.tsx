@@ -22,7 +22,7 @@ const NODE_DIAM = 88; // button diameter (px)
 const HOME_DIAM = 104; // home size (px)
 const EDGE_STROKE = 2; // svg stroke width
 const MARGIN = 24; // min margin from container edge
-const SPIN_MS = 5000; // wheel spin duration (much longer for complex animation)
+const SPIN_MS = 7000; // wheel spin duration (much longer for complex animation)
 
 export default function GraphNav({ onSelect }: GraphNavProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
