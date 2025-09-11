@@ -38,6 +38,14 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
   const [reduced, setReduced] = useState(false);
   const [isHoveringHome, setIsHoveringHome] = useState(false);
 
+  // Sphere expansion state
+  const [expandingNode, setExpandingNode] = useState<NavNode | null>(null);
+  const [expansionProgress, setExpansionProgress] = useState(0);
+  const [expansionOrigin, setExpansionOrigin] = useState<{
+    x: number;
+    y: number;
+  }>({ x: 0, y: 0 });
+
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
     const update = () => setReduced(mq.matches);
@@ -158,9 +166,50 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
         onSelect?.(node, { x: cx, y: cy });
       }
     } else {
-      // Other nodes: no spin required; pass their center
-      onSelect?.(node, { x: cx, y: cy });
+      // For satellite nodes: start sphere expansion
+      if (!reduced) {
+        startSphereExpansion(node);
+      } else {
+        onSelect?.(node, { x: cx, y: cy });
+      }
     }
+  }
+
+  // Sphere expansion animation
+  function startSphereExpansion(
+    node: NavNode,
+    buttonPosition?: { x: number; y: number }
+  ) {
+    setExpandingNode(node);
+    setExpansionProgress(0);
+
+    // Use button position if provided, otherwise use center
+    const origin = buttonPosition || { x: cx, y: cy };
+    setExpansionOrigin(origin);
+
+    // Animate expansion
+    const duration = 1500; // 1.5 seconds
+    const startTime = Date.now();
+
+    function animate() {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+
+      setExpansionProgress(progress);
+
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      } else {
+        // Expansion complete, notify parent
+        setTimeout(() => {
+          onSelect?.(node, { x: cx, y: cy });
+          setExpandingNode(null);
+          setExpansionProgress(0);
+        }, 200);
+      }
+    }
+
+    requestAnimationFrame(animate);
   }
 
   return (
@@ -174,6 +223,54 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
         minHeight: ready ? "auto" : "65vh", // ensure container has proper height
       }}
     >
+      {/* Sphere expansion overlay */}
+      {expandingNode && (
+        <>
+          {/* Blue-green background overlay */}
+          <div
+            className="absolute inset-0 pointer-events-none z-20"
+            style={{
+              background: `radial-gradient(circle at ${expansionOrigin.x}px ${expansionOrigin.y}px, 
+                rgba(34, 211, 238, 0.1) 0%, 
+                rgba(20, 184, 166, 0.15) 30%, 
+                rgba(6, 182, 212, 0.2) 60%, 
+                rgba(14, 165, 233, 0.25) 100%)`,
+              opacity: expansionProgress,
+              transition: "opacity 100ms ease-out",
+            }}
+          />
+
+          {/* Expanding sphere with curvature effect */}
+          <div
+            className="absolute inset-0 pointer-events-none z-30"
+            style={{
+              background: `radial-gradient(ellipse ${size.w * 2}px ${
+                size.h * 2
+              }px at ${expansionOrigin.x}px ${expansionOrigin.y}px,
+                rgba(34, 211, 238, 0.8) 0%,
+                rgba(20, 184, 166, 0.6) 40%,
+                rgba(6, 182, 212, 0.4) 70%,
+                transparent 100%)`,
+              clipPath: `circle(${
+                expansionProgress * Math.max(size.w, size.h) * 0.8
+              }px at ${expansionOrigin.x}px ${expansionOrigin.y}px)`,
+              transition: "clip-path 50ms ease-out",
+            }}
+          />
+
+          {/* Section title */}
+          <div
+            className="absolute top-6 left-6 text-white/90 font-medium text-lg z-40 pointer-events-none"
+            style={{
+              opacity: expansionProgress,
+              transform: `translateY(${(1 - expansionProgress) * 20}px)`,
+              transition: "opacity 200ms ease-out, transform 200ms ease-out",
+            }}
+          >
+            {expandingNode.label}
+          </div>
+        </>
+      )}
       {/* Static container for HOME only */}
       <div className="absolute inset-0">
         {/* HOME (center hub) - static, doesn't spin */}
@@ -270,7 +367,20 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
                   height: NODE_DIAM,
                 }}
                 aria-label={node.label}
-                onClick={(e) => activate(node, e.currentTarget)}
+                onClick={(e) => {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const containerRect =
+                    containerRef.current?.getBoundingClientRect();
+                  if (containerRect) {
+                    const buttonPosition = {
+                      x: rect.left + rect.width / 2 - containerRect.left,
+                      y: rect.top + rect.height / 2 - containerRect.top,
+                    };
+                    startSphereExpansion(node, buttonPosition);
+                  } else {
+                    activate(node, e.currentTarget);
+                  }
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
