@@ -51,6 +51,8 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
     y: number;
   }>({ x: 0, y: 0 });
   const [showContent, setShowContent] = useState(false);
+  const [modalOpacity, setModalOpacity] = useState(0);
+  const [expansionFadeOut, setExpansionFadeOut] = useState(false);
 
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -160,10 +162,10 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
       document.activeElement.blur();
     }
 
-    // For HOME: close any open content, then spin and notify parent
+    // For HOME: close any open expansion, then spin and notify parent
     if (node.id === "home") {
-      // Close any open content first
-      if (showContent) {
+      // Close any open expansion first
+      if (expandingNode) {
         closeContent();
         return;
       }
@@ -212,10 +214,8 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
       if (progress < 1) {
         requestAnimationFrame(animate);
       } else {
-        // Expansion complete, show content instead of navigating
-        setTimeout(() => {
-          setShowContent(true);
-        }, 200);
+        // Expansion complete - this is the final state, no modal
+        // Keep the blue-green expansion visible
       }
     }
 
@@ -240,11 +240,11 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
     }
   }
 
-  // Close content and return to graph
+  // Close expansion and return to graph
   function closeContent() {
-    setShowContent(false);
     setExpandingNode(null);
     setExpansionProgress(0);
+    setExpansionFadeOut(false);
   }
 
   return (
@@ -258,7 +258,7 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
         minHeight: ready ? "auto" : "65vh", // ensure container has proper height
       }}
     >
-      {/* Sphere expansion overlay */}
+      {/* Sphere expansion overlay - this is the final state */}
       {expandingNode && (
         <>
           {/* Blue-green background overlay */}
@@ -304,41 +304,17 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
           >
             {expandingNode.label}
           </div>
-        </>
-      )}
 
-      {/* Content display area */}
-      {showContent && expandingNode && (
-        <>
-          {/* Dimmed background */}
-          <div
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm z-40"
-            onClick={closeContent}
-          />
-
-          {/* Content container */}
-          <div
-            className="absolute inset-0 z-50 flex items-center justify-center p-8"
-            style={{
-              clipPath: `circle(${Math.max(size.w, size.h) * 0.4}px at ${
-                expansionOrigin.x
-              }px ${expansionOrigin.y}px)`,
-            }}
-          >
-            {/* Close button */}
+          {/* Close button - only visible when expansion is complete */}
+          {expansionProgress === 1 && (
             <button
               onClick={closeContent}
-              className="absolute top-4 right-4 z-60 bg-white/10 hover:bg-white/20 text-white rounded-full w-8 h-8 flex items-center justify-center backdrop-blur-sm transition-colors"
+              className="absolute top-6 right-6 z-50 bg-white/20 hover:bg-white/30 text-white rounded-full w-8 h-8 flex items-center justify-center backdrop-blur-sm transition-colors shadow-lg"
               aria-label="Close"
             >
               ×
             </button>
-
-            {/* Scrollable content */}
-            <div className="w-full h-full overflow-y-auto bg-white/95 dark:bg-gray-900/95 rounded-lg shadow-2xl backdrop-blur-sm">
-              {renderContent(expandingNode)}
-            </div>
-          </div>
+          )}
         </>
       )}
 
