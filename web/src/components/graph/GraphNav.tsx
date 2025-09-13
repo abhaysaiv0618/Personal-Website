@@ -279,6 +279,12 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
             className={`relative w-full max-w-4xl max-h-[80vh] rounded-2xl shadow-2xl overflow-hidden animate-modal-enter ${
               selectedNode?.id === "education"
                 ? "bg-gradient-to-br from-red-900/95 to-red-800/95 border-2 border-red-400/30 shadow-[0_0_20px_rgba(239,68,68,0.3)] ring-2 ring-black/20"
+                : selectedNode?.id === "contact"
+                ? "bg-gradient-to-br from-purple-900/95 to-purple-800/95 border-2 border-purple-400/30 shadow-[0_0_20px_rgba(147,51,234,0.3)] ring-2 ring-black/20"
+                : selectedNode?.id === "projects"
+                ? "bg-gradient-to-br from-green-900/95 to-green-800/95 border-2 border-green-400/30 shadow-[0_0_20px_rgba(34,197,94,0.3)] ring-2 ring-black/20"
+                : selectedNode?.id === "experience"
+                ? "bg-gradient-to-br from-amber-900/95 to-amber-800/95 border-2 border-amber-400/30 shadow-[0_0_20px_rgba(245,158,11,0.3)] ring-2 ring-black/20"
                 : "bg-gradient-to-br from-slate-900/95 to-slate-800/95 border border-cyan-400/30"
             }`}
           >
@@ -287,6 +293,12 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
               className={`relative border-b p-6 ${
                 selectedNode?.id === "education"
                   ? "bg-gradient-to-r from-red-500/20 to-red-600/20 border-b-2 border-red-400/30 ring-1 ring-black/30"
+                  : selectedNode?.id === "contact"
+                  ? "bg-gradient-to-r from-purple-500/20 to-purple-600/20 border-b-2 border-purple-400/30 ring-1 ring-black/30"
+                  : selectedNode?.id === "projects"
+                  ? "bg-gradient-to-r from-green-500/20 to-green-600/20 border-b-2 border-green-400/30 ring-1 ring-black/30"
+                  : selectedNode?.id === "experience"
+                  ? "bg-gradient-to-r from-amber-500/20 to-amber-600/20 border-b-2 border-amber-400/30 ring-1 ring-black/30"
                   : "bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border-cyan-400/30"
               }`}
             >
@@ -294,6 +306,12 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
                 className={`absolute inset-0 animate-pulse ${
                   selectedNode?.id === "education"
                     ? "bg-gradient-to-r from-red-500/10 to-red-600/10"
+                    : selectedNode?.id === "contact"
+                    ? "bg-gradient-to-r from-purple-500/10 to-purple-600/10"
+                    : selectedNode?.id === "projects"
+                    ? "bg-gradient-to-r from-green-500/10 to-green-600/10"
+                    : selectedNode?.id === "experience"
+                    ? "bg-gradient-to-r from-amber-500/10 to-amber-600/10"
                     : "bg-gradient-to-r from-cyan-500/10 to-blue-500/10"
                 }`}
               />
@@ -302,6 +320,12 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
                   className={`text-2xl font-bold tracking-wide ${
                     selectedNode?.id === "education"
                       ? "text-yellow-300"
+                      : selectedNode?.id === "contact"
+                      ? "text-white"
+                      : selectedNode?.id === "projects"
+                      ? "text-white"
+                      : selectedNode?.id === "experience"
+                      ? "text-white"
                       : "text-white/90"
                   }`}
                 >
@@ -312,6 +336,12 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
                   className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 ${
                     selectedNode?.id === "education"
                       ? "bg-red-500/20 hover:bg-red-500/30 border border-red-400/30 text-red-400 hover:text-red-300"
+                      : selectedNode?.id === "contact"
+                      ? "bg-purple-500/20 hover:bg-purple-500/30 border border-purple-400/30 text-purple-400 hover:text-purple-300"
+                      : selectedNode?.id === "projects"
+                      ? "bg-green-500/20 hover:bg-green-500/30 border border-green-400/30 text-green-400 hover:text-green-300"
+                      : selectedNode?.id === "experience"
+                      ? "bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/30 text-amber-400 hover:text-amber-300"
                       : "bg-red-500/20 hover:bg-red-500/30 border border-red-400/30 text-red-400 hover:text-red-300"
                   }`}
                   aria-label="Close modal"
@@ -458,6 +488,334 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
                         <p className="text-sm font-medium">Education Image</p>
                         <p className="text-xs text-white/40">Coming Soon</p>
                       </div>
+                    </div>
+                  </div>
+                </div>
+              ) : selectedNode.id === "contact" ? (
+                // Contact specific content with two columns
+                <div className="flex flex-col lg:flex-row gap-6">
+                  {/* Left column - Text content */}
+                  <div className="flex-1 space-y-4 text-white/80">
+                    <div className="space-y-4">
+                      <h3 className="text-xl font-semibold text-white">
+                        Contact Info
+                      </h3>
+
+                      <div className="space-y-3">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-8 h-8 bg-blue-500/20 rounded-full flex items-center justify-center">
+                            <svg
+                              className="w-4 h-4 text-blue-400"
+                              fill="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+                            </svg>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-white/90">
+                              LinkedIn:
+                            </p>
+                            <a
+                              href="https://linkedin.com/in/abhaysai-vemula"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-cyan-300 hover:text-cyan-200 transition-colors duration-200 underline"
+                            >
+                              Abhaysai Vemula | LinkedIn
+                            </a>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center space-x-3">
+                          <div className="w-8 h-8 bg-green-500/20 rounded-full flex items-center justify-center">
+                            <svg
+                              className="w-4 h-4 text-green-400"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                              />
+                            </svg>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-white/90">
+                              Email:
+                            </p>
+                            <a
+                              href="mailto:abhaysai.vemula@gmail.com"
+                              className="text-cyan-300 hover:text-cyan-200 transition-colors duration-200 underline"
+                            >
+                              abhaysai.vemula@gmail.com
+                            </a>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right column - Image placeholder */}
+                  <div className="flex-shrink-0 lg:w-80">
+                    <div className="w-full h-64 bg-gradient-to-br from-slate-700/50 to-slate-600/50 border border-cyan-400/30 rounded-lg flex items-center justify-center">
+                      <div className="text-center text-white/60">
+                        <div className="w-16 h-16 mx-auto mb-3 bg-cyan-500/20 rounded-full flex items-center justify-center">
+                          <svg
+                            className="w-8 h-8 text-cyan-400"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                            />
+                          </svg>
+                        </div>
+                        <p className="text-sm font-medium">Contact Image</p>
+                        <p className="text-xs text-white/40">Coming Soon</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : selectedNode.id === "projects" ? (
+                // Projects specific content - table format
+                <div className="space-y-6 text-white/80">
+                  {/* Projects Table */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {/* Project 1 */}
+                    <div className="bg-green-500/10 border border-green-400/20 rounded-lg p-4 hover:bg-green-500/15 transition-colors duration-200">
+                      <h4 className="text-lg font-semibold text-white mb-2">
+                        PathNet: CNN-Based Path Prediction in Simulated
+                        Environments
+                      </h4>
+                      <div className="space-y-2">
+                        <div>
+                          <p className="text-sm font-medium text-green-300 mb-1">
+                            Technologies:
+                          </p>
+                          <p className="text-sm text-white/80">
+                            Python, PyTorch, Matplotlib
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-green-300 mb-1">
+                            Link:
+                          </p>
+                          <a
+                            href="#"
+                            className="text-sm text-cyan-300 hover:text-cyan-200 underline"
+                          >
+                            View Project
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Project 2 */}
+                    <div className="bg-green-500/10 border border-green-400/20 rounded-lg p-4 hover:bg-green-500/15 transition-colors duration-200">
+                      <h4 className="text-lg font-semibold text-white mb-2">
+                        Bayesian Pathfinding AI for Probabilistic
+                        Decision-Making
+                      </h4>
+                      <div className="space-y-2">
+                        <div>
+                          <p className="text-sm font-medium text-green-300 mb-1">
+                            Technologies:
+                          </p>
+                          <p className="text-sm text-white/80">
+                            Python, Matplotlib
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-green-300 mb-1">
+                            Link:
+                          </p>
+                          <a
+                            href="#"
+                            className="text-sm text-cyan-300 hover:text-cyan-200 underline"
+                          >
+                            View Project
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Project 3 */}
+                    <div className="bg-green-500/10 border border-green-400/20 rounded-lg p-4 hover:bg-green-500/15 transition-colors duration-200">
+                      <h4 className="text-lg font-semibold text-white mb-2">
+                        Text Summarizer
+                      </h4>
+                      <div className="space-y-2">
+                        <div>
+                          <p className="text-sm font-medium text-green-300 mb-1">
+                            Technologies:
+                          </p>
+                          <p className="text-sm text-white/80">
+                            Python, JavaScript, HTML, CSS, Flask, NLTK, Heapq
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-green-300 mb-1">
+                            Link:
+                          </p>
+                          <a
+                            href="#"
+                            className="text-sm text-cyan-300 hover:text-cyan-200 underline"
+                          >
+                            View Project
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Project 4 */}
+                    <div className="bg-green-500/10 border border-green-400/20 rounded-lg p-4 hover:bg-green-500/15 transition-colors duration-200">
+                      <h4 className="text-lg font-semibold text-white mb-2">
+                        Random Knights
+                      </h4>
+                      <div className="space-y-2">
+                        <div>
+                          <p className="text-sm font-medium text-green-300 mb-1">
+                            Technologies:
+                          </p>
+                          <p className="text-sm text-white/80">
+                            JavaScript, HTML, CSS, Object Oriented Programming
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-green-300 mb-1">
+                            Link:
+                          </p>
+                          <a
+                            href="#"
+                            className="text-sm text-cyan-300 hover:text-cyan-200 underline"
+                          >
+                            View Project
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Project 5 */}
+                    <div className="bg-green-500/10 border border-green-400/20 rounded-lg p-4 hover:bg-green-500/15 transition-colors duration-200">
+                      <h4 className="text-lg font-semibold text-white mb-2">
+                        BirthdayiMessageBot
+                      </h4>
+                      <div className="space-y-2">
+                        <div>
+                          <p className="text-sm font-medium text-green-300 mb-1">
+                            Technologies:
+                          </p>
+                          <p className="text-sm text-white/80">
+                            Python, Py-Imessage, CronJob
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-green-300 mb-1">
+                            Link:
+                          </p>
+                          <a
+                            href="#"
+                            className="text-sm text-cyan-300 hover:text-cyan-200 underline"
+                          >
+                            View Project
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : selectedNode.id === "experience" ? (
+                // Experience specific content - vertical timeline
+                <div className="space-y-6 text-white/80">
+                  {/* Timeline */}
+                  <div className="relative">
+                    {/* Timeline line */}
+                    <div className="absolute left-1/2 transform -translate-x-1/2 w-1 h-full bg-amber-400/30"></div>
+
+                    {/* Experience 1 - Left side */}
+                    <div className="relative flex items-center mb-8">
+                      <div className="w-1/2 pr-8 text-right">
+                        <div className="bg-amber-500/10 border border-amber-400/20 rounded-lg p-4 hover:bg-amber-500/15 transition-colors duration-200">
+                          <div className="flex items-center space-x-3 mb-2">
+                            <div className="w-8 h-8 bg-amber-500/20 rounded-full flex items-center justify-center border border-amber-400/30">
+                              <span className="text-xs text-amber-300 font-medium">
+                                BA
+                              </span>
+                            </div>
+                            <h4 className="text-lg font-semibold text-white">
+                              Software Engineer
+                            </h4>
+                          </div>
+                          <p className="text-base text-amber-300 mb-1">
+                            Bank of America
+                          </p>
+                          <p className="text-sm text-white/80">
+                            July 2025 - Present
+                          </p>
+                        </div>
+                      </div>
+                      <div className="absolute left-1/2 transform -translate-x-1/2 w-4 h-4 bg-amber-400 rounded-full border-2 border-amber-600"></div>
+                      <div className="w-1/2 pl-8"></div>
+                    </div>
+
+                    {/* Experience 2 - Right side */}
+                    <div className="relative flex items-center mb-8">
+                      <div className="w-1/2 pr-8"></div>
+                      <div className="absolute left-1/2 transform -translate-x-1/2 w-4 h-4 bg-amber-400 rounded-full border-2 border-amber-600"></div>
+                      <div className="w-1/2 pl-8">
+                        <div className="bg-amber-500/10 border border-amber-400/20 rounded-lg p-4 hover:bg-amber-500/15 transition-colors duration-200">
+                          <div className="flex items-center space-x-3 mb-2">
+                            <div className="w-8 h-8 bg-amber-500/20 rounded-full flex items-center justify-center border border-amber-400/30">
+                              <span className="text-xs text-amber-300 font-medium">
+                                BA
+                              </span>
+                            </div>
+                            <h4 className="text-lg font-semibold text-white">
+                              Software Engineer Intern
+                            </h4>
+                          </div>
+                          <p className="text-base text-amber-300 mb-1">
+                            Bank of America
+                          </p>
+                          <p className="text-sm text-white/80">
+                            June 2024 - Aug 2024
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Experience 3 - Left side */}
+                    <div className="relative flex items-center mb-8">
+                      <div className="w-1/2 pr-8 text-right">
+                        <div className="bg-amber-500/10 border border-amber-400/20 rounded-lg p-4 hover:bg-amber-500/15 transition-colors duration-200">
+                          <div className="flex items-center space-x-3 mb-2">
+                            <div className="w-8 h-8 bg-amber-500/20 rounded-full flex items-center justify-center border border-amber-400/30">
+                              <span className="text-xs text-amber-300 font-medium">
+                                MC
+                              </span>
+                            </div>
+                            <h4 className="text-lg font-semibold text-white">
+                              Software Engineer Intern
+                            </h4>
+                          </div>
+                          <p className="text-base text-amber-300 mb-1">
+                            Mastercard
+                          </p>
+                          <p className="text-sm text-white/80">
+                            June 2023 - Aug 2023
+                          </p>
+                        </div>
+                      </div>
+                      <div className="absolute left-1/2 transform -translate-x-1/2 w-4 h-4 bg-amber-400 rounded-full border-2 border-amber-600"></div>
+                      <div className="w-1/2 pl-8"></div>
                     </div>
                   </div>
                 </div>
