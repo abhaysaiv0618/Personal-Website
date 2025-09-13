@@ -35,7 +35,7 @@ export default function Home() {
     x: 0,
     y: 0,
   });
-  const [radius, setRadius] = useState(0);
+  const [radius, _setRadius] = useState(0);
 
   // When a node is chosen in the graph
   function handleSelect(
@@ -51,7 +51,7 @@ export default function Home() {
 
     // For non-Home, keep your existing navigation flow (zoom then route)
     if (!graphWrapRef.current) return;
-    const rect = graphWrapRef.current.getBoundingClientRect();
+    const _rect = graphWrapRef.current.getBoundingClientRect();
     setOrigin({ x: center.x, y: center.y });
 
     if (reduced) {

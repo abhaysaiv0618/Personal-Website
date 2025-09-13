@@ -163,7 +163,7 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
   }, [size.w, size.h, reduced]);
 
   // Click handler
-  function activate(node: NavNode, evtTarget?: HTMLElement) {
+  function activate(node: NavNode, _evtTarget?: HTMLElement) {
     // blur active element to avoid focus ring lingering
     if (document.activeElement instanceof HTMLElement) {
       document.activeElement.blur();
@@ -172,8 +172,8 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
     // For HOME: close any open expansion, then spin and notify parent
     if (node.id === "home") {
       // Close any open expansion first
-      if (expandingNode) {
-        closeContent();
+      if (selectedNode) {
+        closeModal();
         return;
       }
 
@@ -192,8 +192,9 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
     }
   }
 
-  // Sphere expansion animation
-  function startSphereExpansion(
+  // Sphere expansion animation (commented out - unused function with undefined state)
+  /*
+  function _startSphereExpansion(
     node: NavNode,
     buttonPosition?: { x: number; y: number }
   ) {
@@ -224,9 +225,10 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
 
     requestAnimationFrame(animate);
   }
+  */
 
   // Render content based on selected node
-  function renderContent(node: NavNode) {
+  function _renderContent(node: NavNode) {
     switch (node.id) {
       case "about":
         return <AboutMePage />;
@@ -370,7 +372,7 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
                       insights. I have taken graduate-level classes in
                       Artificial Intelligence and Advanced Data Management which
                       have challenged me to think of creative solutions but also
-                      provided me with a "foot in the door" into the future of
+                      provided me with a &quot;foot in the door&quot; into the future of
                       the technology ecosystem.
                     </p>
                     <p className="text-base leading-relaxed">
@@ -433,7 +435,7 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
                       </h4>
                       <p className="text-base leading-relaxed text-white/90">
                         Summa Cum Laude, Presidential Scholarship Award
-                        Recipient (&lt; 1% acceptance rate), Dean's List (All
+                        Recipient (&lt; 1% acceptance rate), Dean&apos;s List (All
                         Semesters)
                       </p>
                     </div>
@@ -824,7 +826,7 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
                 <div className="space-y-4 text-white/80">
                   <p className="text-lg leading-relaxed">
                     Welcome to the {selectedNode.label} section! This is where
-                    you'll find detailed information about this topic.
+                    you&apos;ll find detailed information about this topic.
                   </p>
                   <p className="text-base leading-relaxed">
                     Content will be added here in the future. This modal
@@ -922,7 +924,7 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
           </svg>
 
           {/* Satellites */}
-          {positions.map(({ node, x, y }, i) => {
+          {positions.map(({ node, x, y }, _i) => {
             return (
               <button
                 key={node.id}
