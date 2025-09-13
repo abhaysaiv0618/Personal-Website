@@ -275,17 +275,45 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
           />
 
           {/* Modal Container */}
-          <div className="relative w-full max-w-2xl max-h-[80vh] bg-gradient-to-br from-slate-900/95 to-slate-800/95 border border-cyan-400/30 rounded-2xl shadow-2xl overflow-hidden animate-modal-enter">
+          <div
+            className={`relative w-full max-w-4xl max-h-[80vh] rounded-2xl shadow-2xl overflow-hidden animate-modal-enter ${
+              selectedNode?.id === "education"
+                ? "bg-gradient-to-br from-red-900/95 to-red-800/95 border-2 border-red-400/30 shadow-[0_0_20px_rgba(239,68,68,0.3)] ring-2 ring-black/20"
+                : "bg-gradient-to-br from-slate-900/95 to-slate-800/95 border border-cyan-400/30"
+            }`}
+          >
             {/* Header with glow effect */}
-            <div className="relative bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border-b border-cyan-400/30 p-6">
-              <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 animate-pulse" />
+            <div
+              className={`relative border-b p-6 ${
+                selectedNode?.id === "education"
+                  ? "bg-gradient-to-r from-red-500/20 to-red-600/20 border-b-2 border-red-400/30 ring-1 ring-black/30"
+                  : "bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border-cyan-400/30"
+              }`}
+            >
+              <div
+                className={`absolute inset-0 animate-pulse ${
+                  selectedNode?.id === "education"
+                    ? "bg-gradient-to-r from-red-500/10 to-red-600/10"
+                    : "bg-gradient-to-r from-cyan-500/10 to-blue-500/10"
+                }`}
+              />
               <div className="relative flex items-center justify-between">
-                <h2 className="text-2xl font-bold text-white/90 tracking-wide">
+                <h2
+                  className={`text-2xl font-bold tracking-wide ${
+                    selectedNode?.id === "education"
+                      ? "text-yellow-300"
+                      : "text-white/90"
+                  }`}
+                >
                   {selectedNode.label}
                 </h2>
                 <button
                   onClick={closeModal}
-                  className="w-8 h-8 rounded-full bg-red-500/20 hover:bg-red-500/30 border border-red-400/30 flex items-center justify-center text-red-400 hover:text-red-300 transition-all duration-200 hover:scale-110"
+                  className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 ${
+                    selectedNode?.id === "education"
+                      ? "bg-red-500/20 hover:bg-red-500/30 border border-red-400/30 text-red-400 hover:text-red-300"
+                      : "bg-red-500/20 hover:bg-red-500/30 border border-red-400/30 text-red-400 hover:text-red-300"
+                  }`}
                   aria-label="Close modal"
                 >
                   ×
@@ -294,27 +322,168 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
             </div>
 
             {/* Scrollable Content */}
-            <div className="p-6 max-h-[60vh] overflow-y-auto custom-scrollbar">
-              <div className="space-y-4 text-white/80">
-                <p className="text-lg leading-relaxed">
-                  Welcome to the {selectedNode.label} section! This is where
-                  you'll find detailed information about this topic.
-                </p>
-                <p className="text-base leading-relaxed">
-                  Content will be added here in the future. This modal provides
-                  a clean, elegant way to display information in a video
-                  game-style interface.
-                </p>
-                <div className="mt-6 p-4 bg-cyan-500/10 border border-cyan-400/20 rounded-lg">
-                  <h3 className="text-lg font-semibold text-cyan-300 mb-2">
-                    Coming Soon
-                  </h3>
-                  <p className="text-sm text-cyan-200/80">
-                    More detailed content and interactive elements will be added
-                    to this section.
-                  </p>
+            <div className="p-6 max-h-[65vh] overflow-y-auto custom-scrollbar">
+              {selectedNode.id === "about" ? (
+                // About Me specific content with two columns
+                <div className="flex flex-col lg:flex-row gap-6">
+                  {/* Left column - Text content */}
+                  <div className="flex-1 space-y-4 text-white/80">
+                    <p className="text-lg leading-relaxed">
+                      Welcome to my website! I am a Software Engineer working at
+                      Bank of America and a Computer Science & Business
+                      Analytics and Information Technology (BAIT) graduate from
+                      Rutgers University Honors College.
+                    </p>
+                    <p className="text-base leading-relaxed">
+                      My experiences both at work and in university have greatly
+                      refined my technical skills and provided me with valuable
+                      insights. I have taken graduate-level classes in
+                      Artificial Intelligence and Advanced Data Management which
+                      have challenged me to think of creative solutions but also
+                      provided me with a "foot in the door" into the future of
+                      the technology ecosystem.
+                    </p>
+                    <p className="text-base leading-relaxed">
+                      This coupled with the rising importance of AI in our daily
+                      lives, has led me to hope to pursue a career where I can
+                      be at the forefront of these emerging technologies.
+                    </p>
+                    <p className="text-base leading-relaxed">
+                      If you have any questions or want to chat, feel free to
+                      reach out! Email:{" "}
+                      <span className="text-cyan-300 font-medium">
+                        abhaysai.vemula@gmail.com
+                      </span>
+                    </p>
+                  </div>
+
+                  {/* Right column - Image placeholder */}
+                  <div className="flex-shrink-0 lg:w-80">
+                    <div className="w-full h-64 bg-gradient-to-br from-slate-700/50 to-slate-600/50 border border-cyan-400/30 rounded-lg flex items-center justify-center">
+                      <div className="text-center text-white/60">
+                        <div className="w-16 h-16 mx-auto mb-3 bg-cyan-500/20 rounded-full flex items-center justify-center">
+                          <svg
+                            className="w-8 h-8 text-cyan-400"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                            />
+                          </svg>
+                        </div>
+                        <p className="text-sm font-medium">Profile Image</p>
+                        <p className="text-xs text-white/40">Coming Soon</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              ) : selectedNode.id === "education" ? (
+                // Education specific content with two columns
+                <div className="flex flex-col lg:flex-row gap-6">
+                  {/* Left column - Text content */}
+                  <div className="flex-1 space-y-4 text-white/80">
+                    <div className="space-y-3">
+                      <h3 className="text-xl font-semibold text-yellow-300">
+                        Rutgers University Honors College, New Brunswick
+                      </h3>
+                      <p className="text-lg font-medium text-white/95">
+                        Bachelors of Science, Computer Science and Business
+                        Analytics & Information Technology
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <h4 className="text-lg font-semibold text-yellow-300">
+                        Honors:
+                      </h4>
+                      <p className="text-base leading-relaxed text-white/90">
+                        Summa Cum Laude, Presidential Scholarship Award
+                        Recipient (&lt; 1% acceptance rate), Dean's List (All
+                        Semesters)
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <h4 className="text-lg font-semibold text-yellow-300">
+                        Relevant Coursework:
+                      </h4>
+                      <p className="text-base leading-relaxed text-white/90">
+                        Artificial Intelligence (Graduate Level), Advanced Data
+                        Management (Graduate Level), Computer Algorithms, Data
+                        Structures, Computer Architecture, Software Methodology,
+                        Discrete Structures, Time Series Modeling
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <h4 className="text-lg font-semibold text-yellow-300">
+                        Activities:
+                      </h4>
+                      <p className="text-base leading-relaxed text-white/90">
+                        RES, BITS, RUAIR, Sigma Beta Rho
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Right column - Image placeholder */}
+                  <div className="flex-shrink-0 lg:w-80">
+                    <div className="w-full h-64 bg-gradient-to-br from-red-900/30 to-red-800/20 border-2 border-red-400/40 rounded-lg flex items-center justify-center ring-1 ring-black/20">
+                      <div className="text-center text-white/60">
+                        <div className="w-16 h-16 mx-auto mb-3 bg-yellow-500/20 rounded-full flex items-center justify-center ring-1 ring-black/20">
+                          <svg
+                            className="w-8 h-8 text-yellow-300"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M12 14l9-5-9-5-9 5 9 5z"
+                            />
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"
+                            />
+                          </svg>
+                        </div>
+                        <p className="text-sm font-medium">Education Image</p>
+                        <p className="text-xs text-white/40">Coming Soon</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                // Default content for other sections
+                <div className="space-y-4 text-white/80">
+                  <p className="text-lg leading-relaxed">
+                    Welcome to the {selectedNode.label} section! This is where
+                    you'll find detailed information about this topic.
+                  </p>
+                  <p className="text-base leading-relaxed">
+                    Content will be added here in the future. This modal
+                    provides a clean, elegant way to display information in a
+                    video game-style interface.
+                  </p>
+                  <div className="mt-6 p-4 bg-cyan-500/10 border border-cyan-400/20 rounded-lg">
+                    <h3 className="text-lg font-semibold text-cyan-300 mb-2">
+                      Coming Soon
+                    </h3>
+                    <p className="text-sm text-cyan-200/80">
+                      More detailed content and interactive elements will be
+                      added to this section.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
