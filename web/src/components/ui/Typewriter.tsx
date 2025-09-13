@@ -6,7 +6,7 @@ type Props = {
   text: string;
   speedMs?: number; // ms per character
   startDelayMs?: number; // delay before typing starts
-  as?: keyof JSX.IntrinsicElements; // default 'h1'
+  as?: keyof React.JSX.IntrinsicElements; // default 'h1'
   className?: string;
 };
 
@@ -36,11 +36,10 @@ export default function Typewriter({
       return;
     }
     let i = 0;
-    let startTimer: number | undefined;
     let interval: number | undefined;
 
     setDisplay("");
-    startTimer = window.setTimeout(() => {
+    const startTimer = window.setTimeout(() => {
       interval = window.setInterval(() => {
         i++;
         setDisplay(text.slice(0, i));
@@ -56,7 +55,7 @@ export default function Typewriter({
     };
   }, [text, speedMs, startDelayMs, reduced]);
 
-  const Tag = as as any;
+  const Tag = as as keyof React.JSX.IntrinsicElements;
 
   return (
     <Tag aria-label={text} className={className}>

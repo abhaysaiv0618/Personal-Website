@@ -43,16 +43,9 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
   const [reduced, setReduced] = useState(false);
   const [isHoveringHome, setIsHoveringHome] = useState(false);
 
-  // Sphere expansion state
-  const [expandingNode, setExpandingNode] = useState<NavNode | null>(null);
-  const [expansionProgress, setExpansionProgress] = useState(0);
-  const [expansionOrigin, setExpansionOrigin] = useState<{
-    x: number;
-    y: number;
-  }>({ x: 0, y: 0 });
-  const [showContent, setShowContent] = useState(false);
-  const [modalOpacity, setModalOpacity] = useState(0);
-  const [expansionFadeOut, setExpansionFadeOut] = useState(false);
+  // Modal state
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedNode, setSelectedNode] = useState<NavNode | null>(null);
 
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -61,6 +54,20 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
     mq.addEventListener?.("change", update);
     return () => mq.removeEventListener?.("change", update);
   }, []);
+
+  // Handle escape key to close modal
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isModalOpen) {
+        closeModal();
+      }
+    };
+
+    if (isModalOpen) {
+      document.addEventListener("keydown", handleEscape);
+      return () => document.removeEventListener("keydown", handleEscape);
+    }
+  }, [isModalOpen]);
 
   // ResizeObserver for the container (no layout thrash)
   useEffect(() => {
@@ -180,12 +187,8 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
         onSelect?.(node, { x: cx, y: cy });
       }
     } else {
-      // For satellite nodes: start sphere expansion
-      if (!reduced) {
-        startSphereExpansion(node);
-      } else {
-        onSelect?.(node, { x: cx, y: cy });
-      }
+      // For satellite nodes: do nothing on click
+      // Hover effects are preserved in CSS
     }
   }
 
@@ -240,11 +243,15 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
     }
   }
 
-  // Close expansion and return to graph
-  function closeContent() {
-    setExpandingNode(null);
-    setExpansionProgress(0);
-    setExpansionFadeOut(false);
+  // Modal functions
+  function openModal(node: NavNode) {
+    setSelectedNode(node);
+    setIsModalOpen(true);
+  }
+
+  function closeModal() {
+    setIsModalOpen(false);
+    setSelectedNode(null);
   }
 
   return (
@@ -258,64 +265,59 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
         minHeight: ready ? "auto" : "65vh", // ensure container has proper height
       }}
     >
-      {/* Sphere expansion overlay - this is the final state */}
-      {expandingNode && (
-        <>
-          {/* Blue-green background overlay */}
+      {/* Video Game Style Modal */}
+      {isModalOpen && selectedNode && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Backdrop */}
           <div
-            className="absolute inset-0 pointer-events-none z-20"
-            style={{
-              background: `radial-gradient(circle at ${expansionOrigin.x}px ${expansionOrigin.y}px, 
-                rgba(34, 211, 238, 0.1) 0%, 
-                rgba(20, 184, 166, 0.15) 30%, 
-                rgba(6, 182, 212, 0.2) 60%, 
-                rgba(14, 165, 233, 0.25) 100%)`,
-              opacity: expansionProgress,
-              transition: "opacity 100ms ease-out",
-            }}
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={closeModal}
           />
 
-          {/* Expanding sphere with curvature effect */}
-          <div
-            className="absolute inset-0 pointer-events-none z-30"
-            style={{
-              background: `radial-gradient(ellipse ${size.w * 2}px ${
-                size.h * 2
-              }px at ${expansionOrigin.x}px ${expansionOrigin.y}px,
-                rgba(34, 211, 238, 0.8) 0%,
-                rgba(20, 184, 166, 0.6) 40%,
-                rgba(6, 182, 212, 0.4) 70%,
-                transparent 100%)`,
-              clipPath: `circle(${
-                expansionProgress * Math.max(size.w, size.h) * 0.8
-              }px at ${expansionOrigin.x}px ${expansionOrigin.y}px)`,
-              transition: "clip-path 50ms ease-out",
-            }}
-          />
+          {/* Modal Container */}
+          <div className="relative w-full max-w-2xl max-h-[80vh] bg-gradient-to-br from-slate-900/95 to-slate-800/95 border border-cyan-400/30 rounded-2xl shadow-2xl overflow-hidden animate-modal-enter">
+            {/* Header with glow effect */}
+            <div className="relative bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border-b border-cyan-400/30 p-6">
+              <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 animate-pulse" />
+              <div className="relative flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-white/90 tracking-wide">
+                  {selectedNode.label}
+                </h2>
+                <button
+                  onClick={closeModal}
+                  className="w-8 h-8 rounded-full bg-red-500/20 hover:bg-red-500/30 border border-red-400/30 flex items-center justify-center text-red-400 hover:text-red-300 transition-all duration-200 hover:scale-110"
+                  aria-label="Close modal"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
 
-          {/* Section title */}
-          <div
-            className="absolute top-6 left-6 text-white/90 font-medium text-lg z-40 pointer-events-none"
-            style={{
-              opacity: expansionProgress,
-              transform: `translateY(${(1 - expansionProgress) * 20}px)`,
-              transition: "opacity 200ms ease-out, transform 200ms ease-out",
-            }}
-          >
-            {expandingNode.label}
+            {/* Scrollable Content */}
+            <div className="p-6 max-h-[60vh] overflow-y-auto custom-scrollbar">
+              <div className="space-y-4 text-white/80">
+                <p className="text-lg leading-relaxed">
+                  Welcome to the {selectedNode.label} section! This is where
+                  you'll find detailed information about this topic.
+                </p>
+                <p className="text-base leading-relaxed">
+                  Content will be added here in the future. This modal provides
+                  a clean, elegant way to display information in a video
+                  game-style interface.
+                </p>
+                <div className="mt-6 p-4 bg-cyan-500/10 border border-cyan-400/20 rounded-lg">
+                  <h3 className="text-lg font-semibold text-cyan-300 mb-2">
+                    Coming Soon
+                  </h3>
+                  <p className="text-sm text-cyan-200/80">
+                    More detailed content and interactive elements will be added
+                    to this section.
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
-
-          {/* Close button - only visible when expansion is complete */}
-          {expansionProgress === 1 && (
-            <button
-              onClick={closeContent}
-              className="absolute top-6 right-6 z-50 bg-white/20 hover:bg-white/30 text-white rounded-full w-8 h-8 flex items-center justify-center backdrop-blur-sm transition-colors shadow-lg"
-              aria-label="Close"
-            >
-              ×
-            </button>
-          )}
-        </>
+        </div>
       )}
 
       {/* Static container for HOME only */}
@@ -414,24 +416,13 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
                   height: NODE_DIAM,
                 }}
                 aria-label={node.label}
-                onClick={(e) => {
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  const containerRect =
-                    containerRef.current?.getBoundingClientRect();
-                  if (containerRect) {
-                    const buttonPosition = {
-                      x: rect.left + rect.width / 2 - containerRect.left,
-                      y: rect.top + rect.height / 2 - containerRect.top,
-                    };
-                    startSphereExpansion(node, buttonPosition);
-                  } else {
-                    activate(node, e.currentTarget);
-                  }
+                onClick={() => {
+                  openModal(node);
                 }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
-                    activate(node, e.currentTarget);
+                    openModal(node);
                   }
                 }}
               >

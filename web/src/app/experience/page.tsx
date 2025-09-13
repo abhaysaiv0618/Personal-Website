@@ -5,7 +5,7 @@ export default function ExperiencePage() {
         Experience
       </h1>
       <p className="text-lg text-neutral-600 dark:text-neutral-400 leading-relaxed">
-        Discover my professional experience, skills, and the projects I've
+        Discover my professional experience, skills, and the projects I&apos;ve
         worked on throughout my career.
       </p>
     </div>
