@@ -84,10 +84,10 @@ export default function Home() {
     view === "hero" || reduced
       ? {} // no clip-path in final state or reduced motion
       : ({
-          // Tailwind doesn't type CSS variables; cast is fine
-          ["--reveal-x" as any]: `${origin.x}px`,
-          ["--reveal-y" as any]: `${origin.y}px`,
-          ["--reveal-r" as any]: `${radius}px`,
+          // CSS custom properties
+          ["--reveal-x" as keyof React.CSSProperties]: `${origin.x}px`,
+          ["--reveal-y" as keyof React.CSSProperties]: `${origin.y}px`,
+          ["--reveal-r" as keyof React.CSSProperties]: `${radius}px`,
         } as React.CSSProperties);
 
   return (
@@ -107,8 +107,8 @@ export default function Home() {
             className="loading-overlay active"
             style={
               {
-                ["--reveal-x" as any]: `${origin.x}px`,
-                ["--reveal-y" as any]: `${origin.y}px`,
+                ["--reveal-x" as keyof React.CSSProperties]: `${origin.x}px`,
+                ["--reveal-y" as keyof React.CSSProperties]: `${origin.y}px`,
               } as React.CSSProperties
             }
           />

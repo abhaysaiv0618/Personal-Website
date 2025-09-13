@@ -5,8 +5,8 @@ export default function ContactPage() {
         Contact
       </h1>
       <p className="text-lg text-neutral-600 dark:text-neutral-400 leading-relaxed">
-        Get in touch with me through various channels. I'm always interested in
-        new opportunities and collaborations.
+        Get in touch with me through various channels. I&apos;m always
+        interested in new opportunities and collaborations.
       </p>
     </div>
   );
