@@ -182,8 +182,8 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
         onSelect?.(node, { x: cx, y: cy });
       }
     } else {
-      // For satellite nodes: do nothing on click
-      // Hover effects are preserved in CSS
+      // For satellite nodes: open modal instead of navigating
+      openModal(node);
     }
   }
 

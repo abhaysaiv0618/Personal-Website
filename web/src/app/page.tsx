@@ -49,22 +49,25 @@ export default function Home() {
       return;
     }
 
-    // For non-Home, keep your existing navigation flow (zoom then route)
-    if (!graphWrapRef.current) return;
-    const _rect = graphWrapRef.current.getBoundingClientRect();
-    setOrigin({ x: center.x, y: center.y });
+    // For non-Home nodes, only navigate if href is not empty
+    if (node.href && node.href.trim() !== "") {
+      if (!graphWrapRef.current) return;
+      const _rect = graphWrapRef.current.getBoundingClientRect();
+      setOrigin({ x: center.x, y: center.y });
 
-    if (reduced) {
-      router.push(node.href);
-      return;
+      if (reduced) {
+        router.push(node.href);
+        return;
+      }
+
+      setView("revealing");
+      // Scale the graph for a subtle push while routing later
+      // (we keep the hero hidden in this branch)
+      setTimeout(() => {
+        router.push(node.href);
+      }, 520);
     }
-
-    setView("revealing");
-    // Scale the graph for a subtle push while routing later
-    // (we keep the hero hidden in this branch)
-    setTimeout(() => {
-      router.push(node.href);
-    }, 520);
+    // If href is empty, the modal will be handled by GraphNav component
   }
 
   // Classes for the graph wrapper
