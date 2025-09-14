@@ -587,12 +587,12 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
                           <p className="text-sm font-medium text-green-300 mb-1">
                             Link:
                           </p>
-                          <a
-                            href="#"
-                            className="text-sm text-cyan-300 hover:text-cyan-200 underline"
+                          <button
+                            className="text-sm text-cyan-300 hover:text-cyan-200 underline bg-transparent border-none cursor-pointer"
+                            onClick={(e) => e.preventDefault()}
                           >
                             View Project
-                          </a>
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -616,12 +616,12 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
                           <p className="text-sm font-medium text-green-300 mb-1">
                             Link:
                           </p>
-                          <a
-                            href="#"
-                            className="text-sm text-cyan-300 hover:text-cyan-200 underline"
+                          <button
+                            className="text-sm text-cyan-300 hover:text-cyan-200 underline bg-transparent border-none cursor-pointer"
+                            onClick={(e) => e.preventDefault()}
                           >
                             View Project
-                          </a>
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -644,12 +644,12 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
                           <p className="text-sm font-medium text-green-300 mb-1">
                             Link:
                           </p>
-                          <a
-                            href="#"
-                            className="text-sm text-cyan-300 hover:text-cyan-200 underline"
+                          <button
+                            className="text-sm text-cyan-300 hover:text-cyan-200 underline bg-transparent border-none cursor-pointer"
+                            onClick={(e) => e.preventDefault()}
                           >
                             View Project
-                          </a>
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -672,12 +672,12 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
                           <p className="text-sm font-medium text-green-300 mb-1">
                             Link:
                           </p>
-                          <a
-                            href="#"
-                            className="text-sm text-cyan-300 hover:text-cyan-200 underline"
+                          <button
+                            className="text-sm text-cyan-300 hover:text-cyan-200 underline bg-transparent border-none cursor-pointer"
+                            onClick={(e) => e.preventDefault()}
                           >
                             View Project
-                          </a>
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -700,12 +700,12 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
                           <p className="text-sm font-medium text-green-300 mb-1">
                             Link:
                           </p>
-                          <a
-                            href="#"
-                            className="text-sm text-cyan-300 hover:text-cyan-200 underline"
+                          <button
+                            className="text-sm text-cyan-300 hover:text-cyan-200 underline bg-transparent border-none cursor-pointer"
+                            onClick={(e) => e.preventDefault()}
                           >
                             View Project
-                          </a>
+                          </button>
                         </div>
                       </div>
                     </div>
