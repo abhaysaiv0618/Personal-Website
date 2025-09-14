@@ -2,11 +2,6 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
-import AboutMePage from "../../app/about-me/page";
-import EducationPage from "../../app/education/page";
-import ExperiencePage from "../../app/experience/page";
-import ProjectsPage from "../../app/projects/page";
-import ContactPage from "../../app/contact/page";
 
 export type NavNode = { id: string; label: string; href: string };
 export type GraphNavProps = {
@@ -15,11 +10,11 @@ export type GraphNavProps = {
 
 const NODES: NavNode[] = [
   { id: "home", label: "Home", href: "/" },
-  { id: "about", label: "About Me", href: "/about" },
-  { id: "education", label: "Education", href: "/education" },
-  { id: "experience", label: "Experience", href: "/experience" },
-  { id: "projects", label: "Projects", href: "/projects" },
-  { id: "contact", label: "Contact", href: "/contact" },
+  { id: "about", label: "About Me", href: "" },
+  { id: "education", label: "Education", href: "" },
+  { id: "experience", label: "Experience", href: "" },
+  { id: "projects", label: "Projects", href: "" },
+  { id: "contact", label: "Contact", href: "" },
 ];
 
 // Visual constants (tweak as needed)
@@ -227,24 +222,6 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
   }
   */
 
-  // Render content based on selected node
-  function _renderContent(node: NavNode) {
-    switch (node.id) {
-      case "about":
-        return <AboutMePage />;
-      case "education":
-        return <EducationPage />;
-      case "experience":
-        return <ExperiencePage />;
-      case "projects":
-        return <ProjectsPage />;
-      case "contact":
-        return <ContactPage />;
-      default:
-        return null;
-    }
-  }
-
   // Modal functions
   function openModal(node: NavNode) {
     setSelectedNode(node);
@@ -372,8 +349,8 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
                       insights. I have taken graduate-level classes in
                       Artificial Intelligence and Advanced Data Management which
                       have challenged me to think of creative solutions but also
-                      provided me with a &quot;foot in the door&quot; into the future of
-                      the technology ecosystem.
+                      provided me with a &quot;foot in the door&quot; into the
+                      future of the technology ecosystem.
                     </p>
                     <p className="text-base leading-relaxed">
                       This coupled with the rising importance of AI in our daily
@@ -435,8 +412,8 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
                       </h4>
                       <p className="text-base leading-relaxed text-white/90">
                         Summa Cum Laude, Presidential Scholarship Award
-                        Recipient (&lt; 1% acceptance rate), Dean&apos;s List (All
-                        Semesters)
+                        Recipient (&lt; 1% acceptance rate), Dean&apos;s List
+                        (All Semesters)
                       </p>
                     </div>
 
