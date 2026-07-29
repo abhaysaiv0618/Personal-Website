@@ -1,30 +1,88 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
+import { LINKEDIN_URL } from "@/components/site/Header";
 
-export type NavNode = { id: string; label: string; href: string };
-export type GraphNavProps = {
-  onSelect?: (node: NavNode, centerPx: { x: number; y: number }) => void;
-};
+export type NavNode = { id: string; label: string };
 
 const NODES: NavNode[] = [
-  { id: "home", label: "Home", href: "/" },
-  { id: "about", label: "About Me", href: "" },
-  { id: "education", label: "Education", href: "" },
-  { id: "experience", label: "Experience", href: "" },
-  { id: "projects", label: "Projects", href: "" },
-  { id: "contact", label: "Contact", href: "" },
+  { id: "home", label: "Home" },
+  { id: "about", label: "About Me" },
+  { id: "education", label: "Education" },
+  { id: "experience", label: "Experience" },
+  { id: "projects", label: "Projects" },
+  { id: "contact", label: "Contact" },
 ];
 
-// Visual constants (tweak as needed)
-const NODE_DIAM = 88; // button diameter (px)
-const HOME_DIAM = 104; // home size (px)
-const EDGE_STROKE = 2; // svg stroke width
-const MARGIN = 24; // min margin from container edge
-const SPIN_MS = 7000; // wheel spin duration (much longer for complex animation)
+// TODO: replace each `url` with the real repo/demo link. A card with a null
+// url renders its title and tech stack without a dead "View Project" link.
+const PROJECTS: { title: string; tech: string; url: string | null }[] = [
+  {
+    title: "PathNet: CNN-Based Path Prediction in Simulated Environments",
+    tech: "Python, PyTorch, Matplotlib",
+    url: null,
+  },
+  {
+    title: "Bayesian Pathfinding AI for Probabilistic Decision-Making",
+    tech: "Python, Matplotlib",
+    url: null,
+  },
+  {
+    title: "Text Summarizer",
+    tech: "Python, JavaScript, HTML, CSS, Flask, NLTK, Heapq",
+    url: null,
+  },
+  {
+    title: "Random Knights",
+    tech: "JavaScript, HTML, CSS, Object Oriented Programming",
+    url: null,
+  },
+  {
+    title: "BirthdayiMessageBot",
+    tech: "Python, Py-Imessage, CronJob",
+    url: null,
+  },
+];
 
-export default function GraphNav({ onSelect }: GraphNavProps) {
+const EXPERIENCE: {
+  badge: string;
+  title: string;
+  org: string;
+  dates: string;
+}[] = [
+  {
+    badge: "BA",
+    title: "Software Engineer",
+    org: "Bank of America",
+    dates: "July 2025 - Present",
+  },
+  {
+    badge: "BA",
+    title: "Software Engineer Intern",
+    org: "Bank of America",
+    dates: "June 2024 - Aug 2024",
+  },
+  {
+    badge: "MC",
+    title: "Software Engineer Intern",
+    org: "Mastercard",
+    dates: "June 2023 - Aug 2023",
+  },
+];
+
+// HOME sits at the hub; the rest orbit it. Split once at module scope so the
+// layout memos below aren't invalidated on every render.
+const HOME = NODES[0];
+const SATELLITES = NODES.slice(1);
+
+// Visual constants (tweak as needed)
+const MAX_NODE_DIAM = 88; // satellite diameter at full size (px)
+const MIN_NODE_DIAM = 52; // satellite diameter on the narrowest screens (px)
+const EDGE_STROKE = 2; // svg stroke width
+const MARGIN = 12; // min gap between a node's edge and the container edge
+
+export default function GraphNav() {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const wheelRef = useRef<HTMLDivElement | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -33,14 +91,17 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
   const [size, setSize] = useState<{ w: number; h: number }>({ w: 0, h: 0 });
   const [ready, setReady] = useState(false);
 
-  // Replayable spin key (to restart CSS animation)
+  // Replayable spin key (remounting the wheel restarts the CSS animation)
   const [spinKey, setSpinKey] = useState(0);
   const [reduced, setReduced] = useState(false);
   const [isHoveringHome, setIsHoveringHome] = useState(false);
 
   // Modal state
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedNode, setSelectedNode] = useState<NavNode | null>(null);
+
+  // Element that opened the modal, so focus can be restored on close
+  const lastFocusedRef = useRef<HTMLElement | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -50,19 +111,26 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
     return () => mq.removeEventListener?.("change", update);
   }, []);
 
-  // Handle escape key to close modal
+  // While the modal is open: close on Escape, lock background scroll, and
+  // move focus into the dialog (restored to the opener on close).
   useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isModalOpen) {
-        closeModal();
-      }
-    };
+    if (!selectedNode) return;
 
-    if (isModalOpen) {
-      document.addEventListener("keydown", handleEscape);
-      return () => document.removeEventListener("keydown", handleEscape);
-    }
-  }, [isModalOpen]);
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeModal();
+    };
+    document.addEventListener("keydown", handleEscape);
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    closeButtonRef.current?.focus();
+
+    return () => {
+      document.removeEventListener("keydown", handleEscape);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [selectedNode]);
 
   // ResizeObserver for the container (no layout thrash)
   useEffect(() => {
@@ -81,43 +149,48 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
     return () => ro.disconnect();
   }, []);
 
-  // Center + radius
-  const { cx, cy, radius } = useMemo(() => {
+  // Center, node sizes and orbit radius, all derived from the container so the
+  // wheel stays inside the viewport on small screens.
+  const { cx, cy, radius, nodeDiam, homeDiam } = useMemo(() => {
     const w = Math.max(0, size.w);
     const h = Math.max(0, size.h);
     const cx = w / 2;
     const cy = h / 2;
+    const shortSide = Math.min(w, h);
 
-    // Circle radius that avoids collisions and edges
-    // Allow some room for node diameter etc.
-    const rCandidate =
-      Math.min(cx, cy) - Math.max(NODE_DIAM, HOME_DIAM) * 0.7 - MARGIN;
-    const radius = Math.max(120, rCandidate); // clamp minimal radius
-    return { cx, cy, radius };
+    // Scale the nodes down on narrow screens rather than letting them overflow.
+    const nodeDiam = Math.min(
+      MAX_NODE_DIAM,
+      Math.max(MIN_NODE_DIAM, shortSide * 0.18)
+    );
+    const homeDiam = nodeDiam * 1.18;
+
+    // Largest orbit that still keeps a whole satellite inside the container,
+    // floored so satellites never overlap HOME or each other.
+    const minRadius = homeDiam / 2 + nodeDiam / 2 + 8;
+    const fits = Math.min(cx, cy) - nodeDiam / 2 - MARGIN;
+    const radius = Math.max(minRadius, fits);
+
+    return { cx, cy, radius, nodeDiam, homeDiam };
   }, [size.w, size.h]);
-
-  // Separate HOME from satellites
-  const home = NODES.find((n) => n.id === "home")!;
-  const satellites = NODES.filter((n) => n.id !== "home");
 
   // Evenly spaced polar angles
   const positions = useMemo(() => {
-    const n = satellites.length;
-    const items = satellites.map((node, i) => {
+    const n = SATELLITES.length;
+    return SATELLITES.map((node, i) => {
       const angle = (i / n) * Math.PI * 2 - Math.PI / 2; // start at top (12 o'clock)
       const x = cx + radius * Math.cos(angle);
       const y = cy + radius * Math.sin(angle);
       return { node, angle, x, y };
     });
-    return items;
-  }, [satellites, cx, cy, radius]);
+  }, [cx, cy, radius]);
 
   // Draw edges once per layout; edges rotate with the wheel
   const edges = useMemo(() => {
     return positions.map(({ node, x, y }) => {
       // Trim so the line stops at the pill edge (approximate by radius)
-      const homeR = HOME_DIAM / 2;
-      const nodeR = NODE_DIAM / 2;
+      const homeR = homeDiam / 2;
+      const nodeR = nodeDiam / 2;
 
       const dx = x - cx;
       const dy = y - cy;
@@ -132,130 +205,67 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
 
       return { id: node.id, x1, y1, x2, y2 };
     });
-  }, [positions, cx, cy]);
+  }, [positions, cx, cy, nodeDiam, homeDiam]);
 
   // Show content only when we have a size (prevents initial snap)
   useEffect(() => {
-    if (size.w > 0 && size.h > 0) {
-      // Add extra delay to ensure background is fully loaded
-      const readyTimer = setTimeout(() => {
-        setReady(true);
-      }, 100);
+    if (size.w <= 0 || size.h <= 0) return;
+    const readyTimer = setTimeout(() => setReady(true), 100);
+    return () => clearTimeout(readyTimer);
+  }, [size.w, size.h]);
 
-      if (!reduced) {
-        // run initial spin once after a longer delay to make it more noticeable
-        const spinTimer = setTimeout(() => {
-          setSpinKey((k) => k + 1);
-        }, 1000); // increased delay to 1000ms
-        return () => {
-          clearTimeout(readyTimer);
-          clearTimeout(spinTimer);
-        };
-      }
-
-      return () => clearTimeout(readyTimer);
+  // HOME closes an open modal, otherwise replays the wheel spin. Bumping
+  // spinKey remounts the wheel, which is what actually restarts the animation
+  // (swapping a class that matches the same CSS rule does not).
+  function handleHomeClick() {
+    if (selectedNode) {
+      closeModal();
+      return;
     }
-  }, [size.w, size.h, reduced]);
-
-  // Click handler
-  function activate(node: NavNode, _evtTarget?: HTMLElement) {
-    // blur active element to avoid focus ring lingering
-    if (document.activeElement instanceof HTMLElement) {
-      document.activeElement.blur();
-    }
-
-    // For HOME: close any open expansion, then spin and notify parent
-    if (node.id === "home") {
-      // Close any open expansion first
-      if (selectedNode) {
-        closeModal();
-        return;
-      }
-
-      if (!reduced) {
-        // replay spin
-        setSpinKey((k) => k + 1);
-        setTimeout(() => {
-          onSelect?.(node, { x: cx, y: cy });
-        }, SPIN_MS); // wait for wheel spin to complete
-      } else {
-        onSelect?.(node, { x: cx, y: cy });
-      }
-    } else {
-      // For satellite nodes: open modal instead of navigating
-      openModal(node);
-    }
+    if (!reduced) setSpinKey((k) => k + 1);
   }
-
-  // Sphere expansion animation (commented out - unused function with undefined state)
-  /*
-  function _startSphereExpansion(
-    node: NavNode,
-    buttonPosition?: { x: number; y: number }
-  ) {
-    setExpandingNode(node);
-    setExpansionProgress(0);
-
-    // Use button position if provided, otherwise use center
-    const origin = buttonPosition || { x: cx, y: cy };
-    setExpansionOrigin(origin);
-
-    // Animate expansion
-    const duration = 1500; // 1.5 seconds
-    const startTime = Date.now();
-
-    function animate() {
-      const elapsed = Date.now() - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-
-      setExpansionProgress(progress);
-
-      if (progress < 1) {
-        requestAnimationFrame(animate);
-      } else {
-        // Expansion complete - this is the final state, no modal
-        // Keep the blue-green expansion visible
-      }
-    }
-
-    requestAnimationFrame(animate);
-  }
-  */
 
   // Modal functions
-  function openModal(node: NavNode) {
+  function openModal(node: NavNode, opener?: HTMLElement | null) {
+    lastFocusedRef.current = opener ?? null;
     setSelectedNode(node);
-    setIsModalOpen(true);
   }
 
   function closeModal() {
-    setIsModalOpen(false);
     setSelectedNode(null);
+    lastFocusedRef.current?.focus();
+    lastFocusedRef.current = null;
   }
 
   return (
     <div
       ref={containerRef}
       className={clsx(
-        "relative w-full h-[65vh] sm:h-[70vh] lg:h-[72vh]",
+        "relative w-full h-[65dvh] sm:h-[70dvh] lg:h-[72dvh]",
         !ready && "invisible opacity-0" // hide until centered layout is ready
       )}
       style={{
-        minHeight: ready ? "auto" : "65vh", // ensure container has proper height
+        minHeight: ready ? "auto" : "65dvh", // ensure container has proper height
       }}
     >
       {/* Video Game Style Modal */}
-      {isModalOpen && selectedNode && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {selectedNode && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="graph-modal-title"
+        >
           {/* Backdrop */}
           <div
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={closeModal}
+            aria-hidden="true"
           />
 
           {/* Modal Container */}
           <div
-            className={`relative w-full max-w-4xl max-h-[80vh] rounded-2xl shadow-2xl overflow-hidden animate-modal-enter ${
+            className={`relative flex w-full max-w-4xl max-h-[85dvh] flex-col rounded-2xl shadow-2xl overflow-hidden animate-modal-enter ${
               selectedNode?.id === "education"
                 ? "bg-gradient-to-br from-red-900/95 to-red-800/95 border-2 border-red-400/30 shadow-[0_0_20px_rgba(239,68,68,0.3)] ring-2 ring-black/20"
                 : selectedNode?.id === "contact"
@@ -269,7 +279,7 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
           >
             {/* Header with glow effect */}
             <div
-              className={`relative border-b p-6 ${
+              className={`relative shrink-0 border-b p-4 sm:p-6 ${
                 selectedNode?.id === "education"
                   ? "bg-gradient-to-r from-red-500/20 to-red-600/20 border-b-2 border-red-400/30 ring-1 ring-black/30"
                   : selectedNode?.id === "contact"
@@ -296,7 +306,8 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
               />
               <div className="relative flex items-center justify-between">
                 <h2
-                  className={`text-2xl font-bold tracking-wide ${
+                  id="graph-modal-title"
+                  className={`text-xl sm:text-2xl font-bold tracking-wide ${
                     selectedNode?.id === "education"
                       ? "text-yellow-300"
                       : selectedNode?.id === "contact"
@@ -311,8 +322,9 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
                   {selectedNode.label}
                 </h2>
                 <button
+                  ref={closeButtonRef}
                   onClick={closeModal}
-                  className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 ${
+                  className={`w-8 h-8 shrink-0 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 ${
                     selectedNode?.id === "education"
                       ? "bg-red-500/20 hover:bg-red-500/30 border border-red-400/30 text-red-400 hover:text-red-300"
                       : selectedNode?.id === "contact"
@@ -331,7 +343,7 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
             </div>
 
             {/* Scrollable Content */}
-            <div className="p-6 max-h-[65vh] overflow-y-auto custom-scrollbar">
+            <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar">
               {selectedNode.id === "about" ? (
                 // About Me specific content with two columns
                 <div className="flex flex-col lg:flex-row gap-6">
@@ -496,7 +508,7 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
                               LinkedIn:
                             </p>
                             <a
-                              href="https://linkedin.com/in/abhaysai-vemula"
+                              href={LINKEDIN_URL}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-cyan-300 hover:text-cyan-200 transition-colors duration-200 underline"
@@ -564,239 +576,91 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
                   </div>
                 </div>
               ) : selectedNode.id === "projects" ? (
-                // Projects specific content - table format
-                <div className="space-y-6 text-white/80">
-                  {/* Projects Table */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {/* Project 1 */}
-                    <div className="bg-green-500/10 border border-green-400/20 rounded-lg p-4 hover:bg-green-500/15 transition-colors duration-200">
+                // Projects specific content - card grid
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 text-white/80">
+                  {PROJECTS.map((project) => (
+                    <div
+                      key={project.title}
+                      className="bg-green-500/10 border border-green-400/20 rounded-lg p-4 hover:bg-green-500/15 transition-colors duration-200"
+                    >
                       <h4 className="text-lg font-semibold text-white mb-2">
-                        PathNet: CNN-Based Path Prediction in Simulated
-                        Environments
+                        {project.title}
                       </h4>
                       <div className="space-y-2">
                         <div>
                           <p className="text-sm font-medium text-green-300 mb-1">
                             Technologies:
                           </p>
-                          <p className="text-sm text-white/80">
-                            Python, PyTorch, Matplotlib
-                          </p>
+                          <p className="text-sm text-white/80">{project.tech}</p>
                         </div>
-                        <div>
-                          <p className="text-sm font-medium text-green-300 mb-1">
-                            Link:
-                          </p>
-                          <button
-                            className="text-sm text-cyan-300 hover:text-cyan-200 underline bg-transparent border-none cursor-pointer"
-                            onClick={(e) => e.preventDefault()}
-                          >
-                            View Project
-                          </button>
-                        </div>
+                        {project.url && (
+                          <div>
+                            <p className="text-sm font-medium text-green-300 mb-1">
+                              Link:
+                            </p>
+                            <a
+                              href={project.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-sm text-cyan-300 hover:text-cyan-200 underline"
+                            >
+                              View Project
+                            </a>
+                          </div>
+                        )}
                       </div>
                     </div>
-
-                    {/* Project 2 */}
-                    <div className="bg-green-500/10 border border-green-400/20 rounded-lg p-4 hover:bg-green-500/15 transition-colors duration-200">
-                      <h4 className="text-lg font-semibold text-white mb-2">
-                        Bayesian Pathfinding AI for Probabilistic
-                        Decision-Making
-                      </h4>
-                      <div className="space-y-2">
-                        <div>
-                          <p className="text-sm font-medium text-green-300 mb-1">
-                            Technologies:
-                          </p>
-                          <p className="text-sm text-white/80">
-                            Python, Matplotlib
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-green-300 mb-1">
-                            Link:
-                          </p>
-                          <button
-                            className="text-sm text-cyan-300 hover:text-cyan-200 underline bg-transparent border-none cursor-pointer"
-                            onClick={(e) => e.preventDefault()}
-                          >
-                            View Project
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Project 3 */}
-                    <div className="bg-green-500/10 border border-green-400/20 rounded-lg p-4 hover:bg-green-500/15 transition-colors duration-200">
-                      <h4 className="text-lg font-semibold text-white mb-2">
-                        Text Summarizer
-                      </h4>
-                      <div className="space-y-2">
-                        <div>
-                          <p className="text-sm font-medium text-green-300 mb-1">
-                            Technologies:
-                          </p>
-                          <p className="text-sm text-white/80">
-                            Python, JavaScript, HTML, CSS, Flask, NLTK, Heapq
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-green-300 mb-1">
-                            Link:
-                          </p>
-                          <button
-                            className="text-sm text-cyan-300 hover:text-cyan-200 underline bg-transparent border-none cursor-pointer"
-                            onClick={(e) => e.preventDefault()}
-                          >
-                            View Project
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Project 4 */}
-                    <div className="bg-green-500/10 border border-green-400/20 rounded-lg p-4 hover:bg-green-500/15 transition-colors duration-200">
-                      <h4 className="text-lg font-semibold text-white mb-2">
-                        Random Knights
-                      </h4>
-                      <div className="space-y-2">
-                        <div>
-                          <p className="text-sm font-medium text-green-300 mb-1">
-                            Technologies:
-                          </p>
-                          <p className="text-sm text-white/80">
-                            JavaScript, HTML, CSS, Object Oriented Programming
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-green-300 mb-1">
-                            Link:
-                          </p>
-                          <button
-                            className="text-sm text-cyan-300 hover:text-cyan-200 underline bg-transparent border-none cursor-pointer"
-                            onClick={(e) => e.preventDefault()}
-                          >
-                            View Project
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Project 5 */}
-                    <div className="bg-green-500/10 border border-green-400/20 rounded-lg p-4 hover:bg-green-500/15 transition-colors duration-200">
-                      <h4 className="text-lg font-semibold text-white mb-2">
-                        BirthdayiMessageBot
-                      </h4>
-                      <div className="space-y-2">
-                        <div>
-                          <p className="text-sm font-medium text-green-300 mb-1">
-                            Technologies:
-                          </p>
-                          <p className="text-sm text-white/80">
-                            Python, Py-Imessage, CronJob
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-green-300 mb-1">
-                            Link:
-                          </p>
-                          <button
-                            className="text-sm text-cyan-300 hover:text-cyan-200 underline bg-transparent border-none cursor-pointer"
-                            onClick={(e) => e.preventDefault()}
-                          >
-                            View Project
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                  ))}
                 </div>
               ) : selectedNode.id === "experience" ? (
-                // Experience specific content - vertical timeline
-                <div className="space-y-6 text-white/80">
-                  {/* Timeline */}
-                  <div className="relative">
-                    {/* Timeline line */}
-                    <div className="absolute left-1/2 transform -translate-x-1/2 w-1 h-full bg-amber-400/30"></div>
+                // Experience specific content - timeline
+                // Single left-aligned column on phones; alternating sides from md up.
+                <div className="relative text-white/80">
+                  {/* Timeline spine */}
+                  <div className="absolute left-[7px] md:left-1/2 top-0 h-full w-1 -translate-x-1/2 bg-amber-400/30" />
 
-                    {/* Experience 1 - Left side */}
-                    <div className="relative flex items-center mb-8">
-                      <div className="w-1/2 pr-8 text-right">
-                        <div className="bg-amber-500/10 border border-amber-400/20 rounded-lg p-4 hover:bg-amber-500/15 transition-colors duration-200">
-                          <div className="flex items-center space-x-3 mb-2">
-                            <div className="w-8 h-8 bg-amber-500/20 rounded-full flex items-center justify-center border border-amber-400/30">
-                              <span className="text-xs text-amber-300 font-medium">
-                                BA
+                  {EXPERIENCE.map((role, i) => (
+                    <div
+                      key={`${role.org}-${role.dates}`}
+                      className="relative mb-8 flex items-center last:mb-0"
+                    >
+                      {/* Node marker */}
+                      <div className="absolute left-[7px] md:left-1/2 z-10 h-4 w-4 -translate-x-1/2 rounded-full border-2 border-amber-600 bg-amber-400" />
+
+                      {/* Spacer that pushes odd entries to the right half on md+ */}
+                      {i % 2 === 1 && <div className="hidden md:block md:w-1/2" />}
+
+                      <div
+                        className={clsx(
+                          "w-full pl-8 md:w-1/2",
+                          i % 2 === 0 ? "md:pr-8 md:pl-0 md:text-right" : "md:pl-8"
+                        )}
+                      >
+                        <div className="rounded-lg border border-amber-400/20 bg-amber-500/10 p-4 transition-colors duration-200 hover:bg-amber-500/15">
+                          <div
+                            className={clsx(
+                              "mb-2 flex items-center gap-3",
+                              i % 2 === 0 && "md:flex-row-reverse"
+                            )}
+                          >
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-amber-400/30 bg-amber-500/20">
+                              <span className="text-xs font-medium text-amber-300">
+                                {role.badge}
                               </span>
                             </div>
                             <h4 className="text-lg font-semibold text-white">
-                              Software Engineer
+                              {role.title}
                             </h4>
                           </div>
-                          <p className="text-base text-amber-300 mb-1">
-                            Bank of America
-                          </p>
-                          <p className="text-sm text-white/80">
-                            July 2025 - Present
-                          </p>
+                          <p className="mb-1 text-base text-amber-300">{role.org}</p>
+                          <p className="text-sm text-white/80">{role.dates}</p>
                         </div>
                       </div>
-                      <div className="absolute left-1/2 transform -translate-x-1/2 w-4 h-4 bg-amber-400 rounded-full border-2 border-amber-600"></div>
-                      <div className="w-1/2 pl-8"></div>
-                    </div>
 
-                    {/* Experience 2 - Right side */}
-                    <div className="relative flex items-center mb-8">
-                      <div className="w-1/2 pr-8"></div>
-                      <div className="absolute left-1/2 transform -translate-x-1/2 w-4 h-4 bg-amber-400 rounded-full border-2 border-amber-600"></div>
-                      <div className="w-1/2 pl-8">
-                        <div className="bg-amber-500/10 border border-amber-400/20 rounded-lg p-4 hover:bg-amber-500/15 transition-colors duration-200">
-                          <div className="flex items-center space-x-3 mb-2">
-                            <div className="w-8 h-8 bg-amber-500/20 rounded-full flex items-center justify-center border border-amber-400/30">
-                              <span className="text-xs text-amber-300 font-medium">
-                                BA
-                              </span>
-                            </div>
-                            <h4 className="text-lg font-semibold text-white">
-                              Software Engineer Intern
-                            </h4>
-                          </div>
-                          <p className="text-base text-amber-300 mb-1">
-                            Bank of America
-                          </p>
-                          <p className="text-sm text-white/80">
-                            June 2024 - Aug 2024
-                          </p>
-                        </div>
-                      </div>
+                      {/* Spacer that keeps even entries in the left half on md+ */}
+                      {i % 2 === 0 && <div className="hidden md:block md:w-1/2" />}
                     </div>
-
-                    {/* Experience 3 - Left side */}
-                    <div className="relative flex items-center mb-8">
-                      <div className="w-1/2 pr-8 text-right">
-                        <div className="bg-amber-500/10 border border-amber-400/20 rounded-lg p-4 hover:bg-amber-500/15 transition-colors duration-200">
-                          <div className="flex items-center space-x-3 mb-2">
-                            <div className="w-8 h-8 bg-amber-500/20 rounded-full flex items-center justify-center border border-amber-400/30">
-                              <span className="text-xs text-amber-300 font-medium">
-                                MC
-                              </span>
-                            </div>
-                            <h4 className="text-lg font-semibold text-white">
-                              Software Engineer Intern
-                            </h4>
-                          </div>
-                          <p className="text-base text-amber-300 mb-1">
-                            Mastercard
-                          </p>
-                          <p className="text-sm text-white/80">
-                            June 2023 - Aug 2023
-                          </p>
-                        </div>
-                      </div>
-                      <div className="absolute left-1/2 transform -translate-x-1/2 w-4 h-4 bg-amber-400 rounded-full border-2 border-amber-600"></div>
-                      <div className="w-1/2 pl-8"></div>
-                    </div>
-                  </div>
+                  ))}
                 </div>
               ) : (
                 // Default content for other sections
@@ -842,37 +706,28 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
           style={{
             left: `${cx}px`,
             top: `${cy}px`,
-            width: HOME_DIAM,
-            height: HOME_DIAM,
+            width: homeDiam,
+            height: homeDiam,
           }}
           aria-label="Home"
-          onClick={(e) => activate(home, e.currentTarget)}
-          onMouseEnter={() => {
-            console.log("Hovering HOME - starting continuous spin");
-            setIsHoveringHome(true);
-          }}
-          onMouseLeave={() => {
-            console.log("Leaving HOME - stopping continuous spin");
-            setIsHoveringHome(false);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              activate(home, e.currentTarget);
-            }
-          }}
+          onClick={handleHomeClick}
+          onMouseEnter={() => setIsHoveringHome(true)}
+          onMouseLeave={() => setIsHoveringHome(false)}
         >
-          <span className="block w-full h-full grid place-items-center text-sm tracking-wide">
-            {home.label}
+          <span className="block w-full h-full grid place-items-center text-xs sm:text-sm tracking-wide">
+            {HOME.label}
           </span>
         </button>
 
-        {/* Spinning container - edges + satellites spin together around HOME center */}
+        {/* Spinning container - edges + satellites spin together around HOME center.
+            Keyed on spinKey so a replay remounts the element, which is what
+            actually restarts the CSS animation. */}
         <div
+          key={spinKey}
           ref={wheelRef}
           className={clsx(
             "absolute inset-0",
-            !reduced && `satellites-spin-${spinKey}`, // unique class to restart animation
+            !reduced && "satellites-spin",
             !reduced && isHoveringHome && "satellites-hover-spin" // continuous spin on hover
           )}
           style={{ transformOrigin: "50% 50%" }}
@@ -901,7 +756,7 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
           </svg>
 
           {/* Satellites */}
-          {positions.map(({ node, x, y }, _i) => {
+          {positions.map(({ node, x, y }) => {
             return (
               <button
                 key={node.id}
@@ -918,21 +773,13 @@ export default function GraphNav({ onSelect }: GraphNavProps) {
                 style={{
                   left: `${x}px`,
                   top: `${y}px`,
-                  width: NODE_DIAM,
-                  height: NODE_DIAM,
+                  width: nodeDiam,
+                  height: nodeDiam,
                 }}
                 aria-label={node.label}
-                onClick={() => {
-                  openModal(node);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    openModal(node);
-                  }
-                }}
+                onClick={(e) => openModal(node, e.currentTarget)}
               >
-                <span className="block w-full h-full grid place-items-center text-sm">
+                <span className="block w-full h-full grid place-items-center px-1 text-center text-[11px] leading-tight sm:text-sm">
                   {node.label}
                 </span>
               </button>

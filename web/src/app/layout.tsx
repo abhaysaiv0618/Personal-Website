@@ -37,7 +37,8 @@ export default function RootLayout({
           Skip to main content
         </a>
         <Header />
-        <main id="content" className="pt-16 md:pt-20">
+        {/* Padding matches the header's h-16 so content clears it exactly. */}
+        <main id="content" className="pt-16">
           <Cosmos3D />
           {children}
         </main>
