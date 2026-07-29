@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 
+export const LINKEDIN_URL = "https://www.linkedin.com/in/abhaysaivemula/";
+
 export default function Header() {
   const [isScrolled, setIsScrolled] = useState(false);
 
@@ -12,13 +14,14 @@ export default function Header() {
       setIsScrolled(window.scrollY > 8);
     };
 
-    window.addEventListener("scroll", handleScroll);
+    handleScroll(); // sync on mount, e.g. when restoring a scrolled position
+    window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   const socialLinks = [
     {
-      href: "https://www.linkedin.com/in/abhaysaivemula/",
+      href: LINKEDIN_URL,
       label: "LinkedIn",
       icon: (
         <svg
@@ -69,43 +72,41 @@ export default function Header() {
 
   return (
     <header
-      className={`fixed top-0 inset-x-0 z-50 bg-white/75 dark:bg-black/60 backdrop-blur supports-[backdrop-filter]:bg-white/60 border-b border-neutral-200 dark:border-neutral-800 transition-all duration-300 ${
+      className={`fixed top-0 inset-x-0 z-50 bg-black/60 backdrop-blur border-b border-neutral-800 transition-all duration-300 ${
         isScrolled ? "h-12" : "h-16"
       }`}
     >
-      <div className="mx-auto max-w-screen-lg px-4 sm:px-6 lg:px-8 h-full flex items-center justify-between">
+      <div className="mx-auto flex h-full max-w-screen-lg items-center gap-2 px-4 sm:px-6 lg:px-8">
         {/* Social Links */}
-        <div className="flex items-center space-x-4">
+        <div className="flex shrink-0 items-center gap-1 sm:gap-3">
           {socialLinks.map((link) => (
-            <Link
+            <a
               key={link.href}
               href={link.href}
-              target={link.href.startsWith("http") ? "_blank" : "_self"}
-              rel={
-                link.href.startsWith("http") ? "noopener noreferrer" : undefined
-              }
-              className="group relative p-2 rounded-md text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 transition-colors duration-200"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group relative rounded-md p-2 text-neutral-400 transition-colors duration-200 hover:bg-neutral-800 hover:text-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
               aria-label={link.label}
             >
               {link.icon}
               {/* Tooltip */}
-              <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs font-medium text-white bg-neutral-900 dark:bg-neutral-100 dark:text-neutral-900 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
+              <span className="pointer-events-none absolute top-full left-1/2 z-50 mt-2 -translate-x-1/2 rounded bg-neutral-100 px-2 py-1 text-xs font-medium whitespace-nowrap text-neutral-900 opacity-0 shadow-lg transition-opacity duration-200 group-hover:opacity-100">
                 {link.label}
               </span>
-            </Link>
+            </a>
           ))}
         </div>
 
-        {/* Center Text */}
+        {/* Center Text — shortens to the name alone on narrow screens */}
         <Link
           href="/"
-          className="text-lg sm:text-xl font-semibold text-neutral-900 dark:text-neutral-100 hover:text-indigo-600 dark:hover:text-indigo-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-md px-2 py-1 transition-colors duration-200"
+          className="min-w-0 flex-1 truncate rounded-md px-2 py-1 text-center text-base font-semibold text-neutral-100 transition-colors duration-200 hover:text-indigo-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 sm:text-xl"
         >
-          Welcome to Abhaysai Vemula&apos;s Portfolio
+          <span className="sm:hidden">Abhaysai Vemula</span>
+          <span className="hidden sm:inline">
+            Welcome to Abhaysai Vemula&apos;s Portfolio
+          </span>
         </Link>
-
-        {/* Right side - empty for balance */}
-        <div className="w-20"></div>
       </div>
     </header>
   );
