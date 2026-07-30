@@ -42,7 +42,7 @@ export default function TitleCard() {
         Abhaysai Vemula
       </h1>
       <p className="mt-2 text-sm text-white/70 sm:text-base">
-        Software Engineer at Bank of America
+        Software Engineer, Gen AI at Capital One
       </p>
       <p className="mt-4 text-xs text-white/40 sm:text-sm">
         Pick a world to explore

@@ -2,6 +2,7 @@
 
 import { Canvas } from "@react-three/fiber";
 import { PLANET_SYSTEM, SYSTEM_EXTENT } from "@/lib/planets";
+import { CAMERA_FOV } from "@/lib/framing";
 import { useSystemStore } from "@/lib/store";
 import CameraRig from "./CameraRig";
 import Orbits from "./Orbits";
@@ -17,12 +18,13 @@ export default function SolarSystem() {
       // alpha keeps the canvas transparent so the existing CSS Cosmos3D
       // starfield shows through instead of a flat black rectangle.
       gl={{ alpha: true, antialias: true }}
-      // Framed from the outermost orbit rather than a magic number, so
-      // adding a seventh planet pulls the camera back on its own.
+      // Only a starting guess — CameraRig solves the real framing from the
+      // live viewport on its first frame and snaps to it. far is generous
+      // because that solved distance grows on narrow windows.
       camera={{
         position: [0, SYSTEM_EXTENT * 0.62, SYSTEM_EXTENT * 1.45],
-        fov: 50,
-        far: SYSTEM_EXTENT * 12,
+        fov: CAMERA_FOV,
+        far: SYSTEM_EXTENT * 30,
       }}
       // Cap pixel ratio at 2. A phone's native 3x renders 9x the pixels of 1x
       // for no perceptible gain, and it's the cheapest perf lever available.

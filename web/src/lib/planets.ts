@@ -46,8 +46,12 @@ export const SUN_RADIUS = 2.2;
 const FIRST_ORBIT = 5.4;
 /** Additional distance per planet outward. */
 const ORBIT_GAP = 2.7;
-/** Default planet radius before per-planet variation. */
-const BASE_SIZE = 0.62;
+/**
+ * Default planet radius before per-planet variation. Sized against the solved
+ * system-view distance (~41 units on a desktop), where this reads as roughly
+ * 40px — small enough to feel like a planet, big enough to be an easy target.
+ */
+const BASE_SIZE = 0.85;
 /** Scales all orbital speeds at once. Raise for a livelier system. */
 const SPEED_SCALE = 0.9;
 

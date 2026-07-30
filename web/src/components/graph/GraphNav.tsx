@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
 import { LINKEDIN_URL } from "@/components/site/Header";
+// Shared with the 3D scene so a job change is a one-file edit, not two.
+import { ABOUT, EXPERIENCE, PROJECTS } from "@/lib/content";
 
 export type NavNode = { id: string; label: string };
 
@@ -13,62 +15,6 @@ const NODES: NavNode[] = [
   { id: "experience", label: "Experience" },
   { id: "projects", label: "Projects" },
   { id: "contact", label: "Contact" },
-];
-
-// TODO: replace each `url` with the real repo/demo link. A card with a null
-// url renders its title and tech stack without a dead "View Project" link.
-const PROJECTS: { title: string; tech: string; url: string | null }[] = [
-  {
-    title: "PathNet: CNN-Based Path Prediction in Simulated Environments",
-    tech: "Python, PyTorch, Matplotlib",
-    url: null,
-  },
-  {
-    title: "Bayesian Pathfinding AI for Probabilistic Decision-Making",
-    tech: "Python, Matplotlib",
-    url: null,
-  },
-  {
-    title: "Text Summarizer",
-    tech: "Python, JavaScript, HTML, CSS, Flask, NLTK, Heapq",
-    url: null,
-  },
-  {
-    title: "Random Knights",
-    tech: "JavaScript, HTML, CSS, Object Oriented Programming",
-    url: null,
-  },
-  {
-    title: "BirthdayiMessageBot",
-    tech: "Python, Py-Imessage, CronJob",
-    url: null,
-  },
-];
-
-const EXPERIENCE: {
-  badge: string;
-  title: string;
-  org: string;
-  dates: string;
-}[] = [
-  {
-    badge: "BA",
-    title: "Software Engineer",
-    org: "Bank of America",
-    dates: "July 2025 - Present",
-  },
-  {
-    badge: "BA",
-    title: "Software Engineer Intern",
-    org: "Bank of America",
-    dates: "June 2024 - Aug 2024",
-  },
-  {
-    badge: "MC",
-    title: "Software Engineer Intern",
-    org: "Mastercard",
-    dates: "June 2023 - Aug 2023",
-  },
 ];
 
 // HOME sits at the hub; the rest orbit it. Split once at module scope so the
@@ -349,31 +295,22 @@ export default function GraphNav() {
                 <div className="flex flex-col lg:flex-row gap-6">
                   {/* Left column - Text content */}
                   <div className="flex-1 space-y-4 text-white/80">
-                    <p className="text-lg leading-relaxed">
-                      Welcome to my website! I am a Software Engineer working at
-                      Bank of America and a Computer Science & Business
-                      Analytics and Information Technology (BAIT) graduate from
-                      Rutgers University Honors College.
-                    </p>
+                    {ABOUT.paragraphs.map((paragraph, i) => (
+                      <p
+                        key={i}
+                        className={
+                          i === 0
+                            ? "text-lg leading-relaxed"
+                            : "text-base leading-relaxed"
+                        }
+                      >
+                        {paragraph}
+                      </p>
+                    ))}
                     <p className="text-base leading-relaxed">
-                      My experiences both at work and in university have greatly
-                      refined my technical skills and provided me with valuable
-                      insights. I have taken graduate-level classes in
-                      Artificial Intelligence and Advanced Data Management which
-                      have challenged me to think of creative solutions but also
-                      provided me with a &quot;foot in the door&quot; into the
-                      future of the technology ecosystem.
-                    </p>
-                    <p className="text-base leading-relaxed">
-                      This coupled with the rising importance of AI in our daily
-                      lives, has led me to hope to pursue a career where I can
-                      be at the forefront of these emerging technologies.
-                    </p>
-                    <p className="text-base leading-relaxed">
-                      If you have any questions or want to chat, feel free to
-                      reach out! Email:{" "}
+                      Email:{" "}
                       <span className="text-cyan-300 font-medium">
-                        abhaysai.vemula@gmail.com
+                        {ABOUT.email}
                       </span>
                     </p>
                   </div>

@@ -6,9 +6,9 @@ import { EMAIL, GITHUB_URL, LINKEDIN_URL, RESUME_URL } from "./links";
 
 export const ABOUT = {
   paragraphs: [
-    "Welcome to my website! I am a Software Engineer working at Bank of America and a Computer Science & Business Analytics and Information Technology (BAIT) graduate from Rutgers University Honors College.",
+    "Welcome to my website! I am a Software Engineer on the Gen AI team at Capital One and a Computer Science & Business Analytics and Information Technology (BAIT) graduate from Rutgers University Honors College.",
     "My experiences both at work and in university have greatly refined my technical skills and provided me with valuable insights. I have taken graduate-level classes in Artificial Intelligence and Advanced Data Management which have challenged me to think of creative solutions but also provided me with a “foot in the door” into the future of the technology ecosystem.",
-    "This coupled with the rising importance of AI in our daily lives, has led me to hope to pursue a career where I can be at the forefront of these emerging technologies.",
+    "That, coupled with the rising importance of AI in our daily lives, is what drew me to generative AI — and it is what I now build day to day, at the forefront of the technologies I spent university hoping to work on.",
     "If you have any questions or want to chat, feel free to reach out!",
   ],
   email: EMAIL,
@@ -23,10 +23,16 @@ export type Role = {
 
 export const EXPERIENCE: Role[] = [
   {
+    badge: "C1",
+    title: "Software Engineer, Gen AI",
+    org: "Capital One",
+    dates: "Jan 2026 - Present",
+  },
+  {
     badge: "BA",
     title: "Software Engineer",
     org: "Bank of America",
-    dates: "July 2025 - Present",
+    dates: "July 2025 - Jan 2026",
   },
   {
     badge: "BA",

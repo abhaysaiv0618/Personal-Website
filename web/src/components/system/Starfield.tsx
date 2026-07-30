@@ -24,8 +24,11 @@ const STAR_COUNT = 3500;
 export default function Starfield() {
   const positions = useMemo(() => {
     const arr = new Float32Array(STAR_COUNT * 3);
-    const inner = SYSTEM_EXTENT * 2.5;
-    const outer = SYSTEM_EXTENT * 6;
+    // Pushed out past the solved system-view distance, which on narrow
+    // windows can exceed 4x the system radius. Stars nearer than the camera
+    // would otherwise pop in front of the planets.
+    const inner = SYSTEM_EXTENT * 5;
+    const outer = SYSTEM_EXTENT * 12;
 
     for (let i = 0; i < STAR_COUNT; i++) {
       // Sample a direction uniformly on a sphere. Picking the polar angle
