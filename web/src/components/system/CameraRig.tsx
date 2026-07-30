@@ -112,22 +112,46 @@ export default function CameraRig() {
       return;
     }
 
-    // Approach along the camera's current viewing direction, so selecting a
-    // planet moves us closer without also swinging us around to a new side.
-    // Preserving the visitor's chosen angle is what keeps this from feeling
-    // like the camera is yanking control away.
     const planet = focusedId ? getPlanet(focusedId) : undefined;
-    const distance = planet
-      ? planet.size * FOCUS_DISTANCE_FACTOR
-      : systemDistance;
 
-    offset.current.copy(camera.position).sub(desiredTarget.current);
-    if (offset.current.lengthSq() < 1e-6) offset.current.copy(viewDirection);
-    offset.current.normalize().multiplyScalar(distance);
-    // Lift the eye above the orbital plane so planets don't read as a flat
-    // line up close. Only needed when focused — the system view already has
-    // its elevation solved into the fitted distance.
-    if (planet) offset.current.y += distance * 0.22;
+    if (planet) {
+      // Zooming in: approach along the camera's current viewing direction, so
+      // selecting a planet moves us closer without swinging us to a new side.
+      // Preserving the visitor's chosen angle is what keeps this from feeling
+      // like the camera is yanking control away.
+      const distance = planet.size * FOCUS_DISTANCE_FACTOR;
+      offset.current.copy(camera.position).sub(desiredTarget.current);
+      if (offset.current.lengthSq() < 1e-6) offset.current.copy(viewDirection);
+      offset.current.normalize().multiplyScalar(distance);
+      // Lift the eye above the orbital plane so planets don't read as a flat
+      // line up close.
+      offset.current.y += distance * 0.22;
+    } else {
+      // Returning to the overview: restore the *solved* elevation and
+      // distance rather than reusing whatever direction the camera inherited
+      // from the planet it was parked at.
+      //
+      // Those two values are one answer, not two independent numbers — the
+      // fit was computed for a specific angle, so keeping the angle and
+      // replacing the distance (or vice versa) silently voids the guarantee
+      // that the outer ring stays on screen.
+      //
+      // The inherited direction is also degenerate near the inner planets: a
+      // camera parked just past a planet on the far side of the sun sits
+      // almost directly above the origin, and normalising that yields a
+      // straight-down vector — the top-down shot with a clipped outer ring.
+      //
+      // Azimuth is kept so someone who rotated to view from another side
+      // stays there; only elevation and distance are restored.
+      const azimuth = Math.atan2(camera.position.x, camera.position.z);
+      const horizontal =
+        Math.hypot(viewDirection.x, viewDirection.z) * systemDistance;
+      offset.current.set(
+        Math.sin(azimuth) * horizontal,
+        viewDirection.y * systemDistance,
+        Math.cos(azimuth) * horizontal
+      );
+    }
 
     desiredPosition.current.copy(desiredTarget.current).add(offset.current);
 
