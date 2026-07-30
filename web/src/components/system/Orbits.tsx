@@ -21,7 +21,10 @@ export default function Orbits() {
   return (
     <group rotation-x={-Math.PI / 2}>
       {PLANET_SYSTEM.map((planet) => (
-        <mesh key={planet.id}>
+        // raycast opted out: a ring is a wide flat disc sitting directly in
+        // front of its planet, so leaving it hit-testable would let it
+        // swallow clicks meant for the planet itself.
+        <mesh key={planet.id} raycast={() => null}>
           <ringGeometry
             args={[
               planet.orbitRadius - RING_THICKNESS,

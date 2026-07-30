@@ -2,12 +2,16 @@
 
 import { Canvas } from "@react-three/fiber";
 import { PLANET_SYSTEM, SYSTEM_EXTENT } from "@/lib/planets";
+import { useSystemStore } from "@/lib/store";
+import CameraRig from "./CameraRig";
 import Orbits from "./Orbits";
 import Planet from "./Planet";
 import Starfield from "./Starfield";
 import Sun from "./Sun";
 
 export default function SolarSystem() {
+  const clearFocus = useSystemStore((s) => s.clearFocus);
+
   return (
     <Canvas
       // alpha keeps the canvas transparent so the existing CSS Cosmos3D
@@ -23,11 +27,13 @@ export default function SolarSystem() {
       // Cap pixel ratio at 2. A phone's native 3x renders 9x the pixels of 1x
       // for no perceptible gain, and it's the cheapest perf lever available.
       dpr={[1, 2]}
+      // Fires when a click hits no object at all — clicking empty space is
+      // the natural "deselect" gesture.
+      onPointerMissed={() => clearFocus()}
     >
       {/* Just enough ambient to keep the far side of a planet readable. The
-          sun's own pointLight (see Sun.tsx) does the real work now — which is
-          why the directionalLight from Sprint 1 is gone. Light coming from
-          the centre is what makes the orbits legible. */}
+          sun's own pointLight does the real work; light coming from the
+          centre is what makes the orbits legible. */}
       <ambientLight intensity={0.22} />
 
       <Starfield />
@@ -39,6 +45,8 @@ export default function SolarSystem() {
       {PLANET_SYSTEM.map((planet) => (
         <Planet key={planet.id} planet={planet} />
       ))}
+
+      <CameraRig />
     </Canvas>
   );
 }

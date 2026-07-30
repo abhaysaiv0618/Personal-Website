@@ -43,7 +43,11 @@ export default function Starfield() {
   }, []);
 
   return (
-    <points>
+    // Opted out of hit-testing. Raycasting walks every raycastable object in
+    // the scene on every pointer move; leaving 3,500 stars in that set would
+    // mean 3,500 intersection tests per mousemove for objects nobody can
+    // click. Cost per frame matters far more here than the draw call saving.
+    <points raycast={() => null}>
       <bufferGeometry>
         {/* attach="attributes-position" is R3F wiring this array onto the
             geometry's `position` attribute — the same thing as calling
