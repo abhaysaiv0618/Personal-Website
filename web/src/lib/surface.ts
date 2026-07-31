@@ -169,6 +169,43 @@ const ROCKET_TOP = 0.84;
 /** Widest point: the fins, not the body. */
 const ROCKET_HALF_WIDTH = 0.28;
 
+/**
+ * What the sky fades toward as the rocket climbs out of the atmosphere.
+ * Near-black rather than pure black so it sits against the CSS starfield
+ * rather than reading as a hole punched in the page.
+ */
+export const SPACE_COLOR = "#05060a";
+
+/** How high the rocket gets before the screen closes over it. */
+const ASCENT_HEIGHT = 150;
+
+/**
+ * Height of the rocket above the pad, over the ascent.
+ *
+ * A pure function of progress rather than an integrated velocity, so the
+ * rocket (drawn by SurfaceScene) and the camera chasing it (driven by Descent)
+ * can compute it independently and get the same answer. Sharing a mutable
+ * position through a registry would work too, but two readers of one pure
+ * function cannot drift, and there is nothing to reset between launches.
+ *
+ * Exponent above 1 because a rocket leaves the pad slowly and then runs away
+ * with itself — a linear climb reads as an elevator.
+ */
+export function rocketAscent(progress: number): number {
+  return ASCENT_HEIGHT * Math.pow(Math.max(progress, 0), 2.2);
+}
+
+/**
+ * How far below the rocket the camera trails once it starts following.
+ *
+ * Small on purpose. The rocket climbs vertically while the camera sits about
+ * five units to one side, so a large vertical gap would leave the camera
+ * staring almost straight up at a dot. Holding station just below it keeps the
+ * rocket at a comfortable angle for the whole climb, and reads as flying up
+ * alongside rather than being left behind on the ground.
+ */
+export const CHASE_GAP = 6;
+
 /** Where we'd like the rocket, in degrees right of centre, given the room. */
 const DESIRED_AZIMUTH_DEG = 16;
 /** Fraction of the vertical half-frame the rocket should fill. */

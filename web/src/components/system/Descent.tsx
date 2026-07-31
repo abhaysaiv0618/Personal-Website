@@ -12,15 +12,21 @@ import {
 } from "@/lib/framing";
 import { getPlanet } from "@/lib/planets";
 import { getPlanetObject } from "@/lib/planetRegistry";
+import {
+  CHASE_GAP,
+  SURFACE_ORIGIN,
+  rocketAscent,
+  rocketPlacement,
+} from "@/lib/surface";
 import { useSystemStore, type Phase } from "@/lib/store";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
 
 /** Extra degrees of lens at the bottom of the dive — the plunge cue. */
 const DIVE_FOV_BOOST = 13;
-/** How far the camera lifts off the surface during departure. */
-const LIFT_DISTANCE = 30;
 /** Stop the dive just clear of the surface, as a multiple of planet radius. */
 const DIVE_FLOOR = 1.05;
+/** Fraction of the ascent spent swinging to face the rocket. */
+const LAUNCH_TURN_FRACTION = 0.18;
 
 /**
  * The dive down and the lift back off — the camera owner during `descending`
@@ -43,14 +49,20 @@ export default function Descent() {
   const land = useSystemStore((s) => s.land);
   const reduced = useReducedMotion();
   const { camera } = useThree();
+  const size = useThree((s) => s.size);
 
-  const timing = cutTiming(reduced);
+  const timing = cutTiming(phase === "departing" ? "up" : "down", reduced);
 
   const elapsed = useRef(0);
   const from = useRef(new Vector3());
   const target = useRef(new Vector3());
   const planetPosition = useRef(new Vector3());
   const previousPhase = useRef<Phase>("system");
+  /** Where the visitor was looking when the launch began, so the turn to
+   *  follow the rocket starts from the truth rather than snapping. */
+  const lookFrom = useRef(new Vector3());
+  const lookAt = useRef(new Vector3());
+  const rocketPosition = useRef(new Vector3());
   /**
    * The lens as the flight handed it over — already widened by the approach.
    * The dive widens further *from here* rather than from the resting value, so
@@ -82,6 +94,13 @@ export default function Descent() {
 
     if (phase === "departing") {
       from.current.copy(camera.position);
+      // Whatever the visitor had turned to face. The camera swings from here
+      // to the rocket over the opening moments rather than cutting to it —
+      // they may well have been looking the other way when they hit the
+      // button, and snapping the view round is the jolt this whole sequence
+      // exists to avoid.
+      camera.getWorldDirection(lookFrom.current);
+      lookFrom.current.multiplyScalar(20).add(camera.position);
       return;
     }
 
@@ -143,10 +162,10 @@ export default function Descent() {
     if (phase !== "descending" && phase !== "departing") return;
     // Reduced motion: hold still and let the veil carry the whole transition.
     // The cut still reads, because a cut is a change of place, not a move.
-    if (timing.DESCENT_MS <= 0) return;
+    if (timing.MOVE_MS <= 0) return;
 
     elapsed.current += delta;
-    const progress = Math.min(elapsed.current / (timing.DESCENT_MS / 1000), 1);
+    const progress = Math.min(elapsed.current / (timing.MOVE_MS / 1000), 1);
     // Ease *out*: enter fast and shed speed on the way in.
     //
     // This is a reversal, and the reason is worth keeping. While the descent
@@ -209,11 +228,38 @@ export default function Descent() {
       return;
     }
 
-    // Departing: rise off the surface. Translation only, deliberately — no
-    // rotation. SurfaceControls has already unmounted and restored the
-    // camera's Euler order, so turning the head here would mean reasoning
-    // about which order is in force partway through a move nobody can see.
-    camera.position.y = from.current.y + eased * LIFT_DISTANCE;
+    // Departing: chase the rocket off the pad.
+    //
+    // This one move is not hidden — the veil holds off for the first 1.6
+    // seconds precisely so it can be watched — which makes it the only
+    // scripted camera move in the codebase that has to look good rather than
+    // merely end in the right place.
+    //
+    // The rocket's height comes from the same pure function SurfaceScene uses
+    // to draw it, so the camera cannot end up chasing a position the rocket
+    // isn't at. Sharing a mutable object through a registry would work too,
+    // but two readers of one pure function have nothing to keep in sync.
+    const climb = rocketAscent(progress);
+    const offset = rocketPlacement(size.width / Math.max(size.height, 1));
+
+    rocketPosition.current.set(
+      SURFACE_ORIGIN.x + offset[0],
+      SURFACE_ORIGIN.y + offset[1] + climb,
+      SURFACE_ORIGIN.z + offset[2]
+    );
+
+    // Stay put until the rocket has cleared CHASE_GAP, then hold station just
+    // below it. Waiting is what sells the launch: you watch it leave the
+    // ground from where you're standing, and only then go up after it. Rising
+    // immediately would read as the whole world sinking instead.
+    camera.position.y = from.current.y + Math.max(0, climb - CHASE_GAP);
+
+    // Swing to face the rocket over the opening stretch, then track it.
+    const turn = Math.min(progress / LAUNCH_TURN_FRACTION, 1);
+    lookAt.current
+      .copy(lookFrom.current)
+      .lerp(rocketPosition.current, turn * turn * (3 - 2 * turn));
+    camera.lookAt(lookAt.current);
   });
 
   return null;

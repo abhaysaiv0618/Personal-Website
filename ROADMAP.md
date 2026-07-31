@@ -209,8 +209,9 @@ needs its own guard.
 **7. Don't synchronise two timelines — order them.**
 The dive runs in `useFrame` (render loop); the veil runs in CSS (compositor).
 They will drift and cannot be made to agree. `lib/cut.ts` instead enforces
-`VEIL_IN_MS < SWAP_MS <= DESCENT_MS`, so the screen is provably solid before the
-world underneath it changes.
+`VEIL_DELAY_MS + VEIL_IN_MS <= SWAP_MS <= MOVE_MS`, so the screen is provably
+solid before the world underneath it changes — in both directions, which are
+timed very differently.
 
 The consequence is the whole reason sprint 5 was cheap: **behind an opaque veil
 a camera may teleport 1,200 units and nobody can tell.** The exact-handoff
@@ -280,6 +281,36 @@ speed drop** on the handoff frame; entering at 2x keeps every trip within about
 2x either way.
 
 A landing brakes. That it also solves the handoff is the useful part.
+
+**Leaving is a launch you watch, not a fade.** The two directions through the
+cut are shaped as opposites on purpose (`DESCENT` and `ASCENT` in `lib/cut.ts`):
+
+- **Down** — the veil closes immediately, in the planet's accent. It reads as
+  dropping into an atmosphere, and there is nothing to watch anyway.
+- **Up** — the veil *waits* 1.6s. The rocket lights, leaves the pad and climbs;
+  the camera holds still for the first ~600ms so you see it go, then rises after
+  it and holds a constant ~39° chase angle. Only then does the screen close.
+
+The veil going up is **black**, and the sky gets there first: `SurfaceScene`
+lerps the background toward `SPACE_COLOR`, thins the fog and dims the
+hemisphere light as the rocket climbs. So black closes over an already-black
+sky and barely registers as a veil. Fading up through the planet's accent —
+which is what it used to do — flashed the screen bright at the exact moment you
+were supposedly leaving for space.
+
+Two details worth keeping:
+
+- The rocket's height is a **pure function** (`rocketAscent`) used by both
+  `SurfaceScene` (to draw it) and `Descent` (to chase it). A shared mutable
+  position would work, but two readers of one pure function cannot drift and
+  there is nothing to reset between launches.
+- Fog thins to 15%, never to zero. With no fog at all the ground disc's rim
+  becomes visible from altitude, and a world with a visible edge is worse than
+  a hazy one.
+
+This is also the **only scripted camera move in the codebase that has to look
+good** rather than merely end in the right place — everything else happens
+behind an opaque screen.
 
 Clicking the planet you are *already* focused on re-lands rather than no-opping,
 which is the only way back down after returning to orbit.
@@ -399,7 +430,9 @@ Freesound or similar, or the toggle ships disabled. Muted by default either way.
 | Speed sensation | `SPEED_FOV_BOOST`, `components/system/Flight.tsx` |
 | How close you park | `HOVER_DISTANCE_FACTOR`, `lib/framing.ts` |
 | Space reserved for UI | `FRAME_MARGINS`, `components/system/CameraRig.tsx` |
-| Cut timing / dive depth | `lib/cut.ts` — keep `VEIL_IN < SWAP <= DESCENT` |
+| Cut timing / dive depth | `DESCENT` in `lib/cut.ts` |
+| How long you watch the launch | `ASCENT.VEIL_DELAY_MS`, `lib/cut.ts` |
+| Launch height / chase framing | `ASCENT_HEIGHT` / `CHASE_GAP`, `lib/surface.ts` |
 | Dive plunge cue | `DIVE_FOV_BOOST`, `components/system/Descent.tsx` |
 | Atmosphere thickness | `FOG_DENSITY`, `lib/surface.ts` |
 | Surface colours | `surfacePalette()`, `lib/surface.ts` |

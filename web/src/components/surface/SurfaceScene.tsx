@@ -1,19 +1,37 @@
 "use client";
 
-import { useMemo } from "react";
-import { useThree } from "@react-three/fiber";
+import { useMemo, useRef } from "react";
+import { useFrame, useThree } from "@react-three/fiber";
+import {
+  Color,
+  MathUtils,
+  type FogExp2,
+  type Group,
+  type HemisphereLight,
+} from "three";
 import type { Planet } from "@/lib/planets";
+import { ASCENT } from "@/lib/cut";
+import { useSystemStore } from "@/lib/store";
 import {
   EYE_HEIGHT,
   FOG_DENSITY,
   GROUND_RADIUS,
   ROCKET_SCALE,
+  SPACE_COLOR,
   SURFACE_ORIGIN,
   rockLayout,
+  rocketAscent,
   rocketPlacement,
   surfacePalette,
 } from "@/lib/surface";
 import Rocket from "@/components/system/Rocket";
+
+/** Sky and fog hold until the rocket is clear of the pad, then thin out. */
+const ATMOSPHERE_FADE = { start: 0.15, end: 0.85 };
+/** Fog never reaches zero — see the note where it's applied. */
+const FOG_FLOOR = 0.15;
+/** Ambient brightness at altitude, as a fraction of ground level. */
+const LIGHT_FLOOR = 0.25;
 
 /**
  * The world you land on.
@@ -55,6 +73,65 @@ export default function SurfaceScene({ planet }: { planet: Planet }) {
     [size.width, size.height]
   );
 
+  const phase = useSystemStore((s) => s.phase);
+  const launching = phase === "departing";
+
+  const rocketRef = useRef<Group>(null);
+  const skyRef = useRef<Color>(null);
+  const fogRef = useRef<FogExp2>(null);
+  const hemiRef = useRef<HemisphereLight>(null);
+  const elapsed = useRef(0);
+  const spaceColor = useMemo(() => new Color(SPACE_COLOR), []);
+
+  useFrame((_state, delta) => {
+    const rocket = rocketRef.current;
+    const sky = skyRef.current;
+    const fog = fogRef.current;
+    const hemi = hemiRef.current;
+
+    if (!launching) {
+      // Parked. Everything is written back explicitly rather than left alone:
+      // the sky Color and the fog are attached to the shared scene and were
+      // mutated in place during the last launch, so landing here again would
+      // otherwise open on the blackened sky the previous departure left behind.
+      elapsed.current = 0;
+      if (rocket) rocket.position.y = rocketOffset[1];
+      if (sky) sky.copy(palette.sky);
+      if (fog) fog.density = FOG_DENSITY;
+      if (hemi) hemi.intensity = 1.15;
+      return;
+    }
+
+    elapsed.current += delta;
+    const progress = Math.min(elapsed.current / (ASCENT.MOVE_MS / 1000), 1);
+
+    // The same pure function Descent uses to place the chase camera, so the
+    // two cannot drift apart.
+    if (rocket) rocket.position.y = rocketOffset[1] + rocketAscent(progress);
+
+    // Climb out of the atmosphere. This is what makes the cut work: the veil
+    // that follows is black, and closing black over an already-black sky is
+    // nearly invisible. Fading up through the planet's colour instead — which
+    // is what this used to do — flashed the screen bright at the exact moment
+    // you were supposedly leaving for space.
+    const out = MathUtils.clamp(
+      (progress - ATMOSPHERE_FADE.start) /
+        (ATMOSPHERE_FADE.end - ATMOSPHERE_FADE.start),
+      0,
+      1
+    );
+
+    if (sky) sky.copy(palette.sky).lerp(spaceColor, out);
+    // Thinned rather than removed. At zero fog the ground disc's rim becomes
+    // visible from altitude, and a world with a visible edge is worse than a
+    // hazy one.
+    if (fog) fog.density = FOG_DENSITY * MathUtils.lerp(1, FOG_FLOOR, out);
+    // The ground has to darken with the sky. Left at full intensity it stays
+    // brightly lit under a black sky, which reads as a lighting bug rather
+    // than as altitude.
+    if (hemi) hemi.intensity = 1.15 * MathUtils.lerp(1, LIGHT_FLOOR, out);
+  });
+
   return (
     <group position={SURFACE_ORIGIN}>
       {/*
@@ -67,15 +144,15 @@ export default function SurfaceScene({ planet }: { planet: Planet }) {
         Placing them inside this component rather than in a phase conditional
         higher up is what buys that.
       */}
-      <color attach="background" args={[palette.sky]} />
-      <fogExp2 attach="fog" args={[palette.sky, FOG_DENSITY]} />
+      <color ref={skyRef} attach="background" args={[palette.sky]} />
+      <fogExp2 ref={fogRef} attach="fog" args={[palette.sky, FOG_DENSITY]} />
 
       {/*
         Sky above, ground below. One light doing the job of a whole environment
         map: it's the difference between "a plane with objects on it" and "a
         place with air in it".
       */}
-      <hemisphereLight args={[palette.sky, palette.ground, 1.15]} />
+      <hemisphereLight ref={hemiRef} args={[palette.sky, palette.ground, 1.15]} />
 
       {/*
         A low sun for direction. Without a directional source every face of a
@@ -114,17 +191,23 @@ export default function SurfaceScene({ planet }: { planet: Planet }) {
         </mesh>
       ))}
 
-      {/* The rocket you flew in, parked and shut down. Its first appearance in
-          the whole experience: the flight is first person, so until now the
-          camera *was* the rocket and there was nothing to look at. */}
+      {/* The rocket you flew in — parked and shut down, until you leave.
+          Its first appearance in the whole experience: the flight is first
+          person, so until now the camera *was* the rocket and there was
+          nothing to look at.
+
+          On departure it lights and climbs, and the camera goes up after it
+          (Descent). That is a deliberate break from first person: the one
+          moment worth seeing your ship from outside is the moment it leaves. */}
       <group
+        ref={rocketRef}
         position={rocketOffset}
         scale={ROCKET_SCALE}
         // Turned a few degrees off the view axis so it reads as parked rather
         // than presented.
         rotation-y={0.6}
       >
-        <Rocket engine={false} color="#e2e8f0" />
+        <Rocket engine={launching} color="#e2e8f0" />
       </group>
 
       {/* A soft glow at the landing site, standing in for the light the engine
