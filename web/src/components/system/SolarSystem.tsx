@@ -7,6 +7,7 @@ import { isInSpace, useSystemStore } from "@/lib/store";
 import SurfaceControls from "@/components/surface/SurfaceControls";
 import SurfaceScene from "@/components/surface/SurfaceScene";
 import CameraRig from "./CameraRig";
+import Descent from "./Descent";
 import Flight from "./Flight";
 import Orbits from "./Orbits";
 import Planet from "./Planet";
@@ -95,8 +96,14 @@ export default function SolarSystem() {
       {phase === "surface" && <SurfaceControls />}
 
       {/* Camera drivers render nothing, so they sit outside the visibility
-          group — they must keep working across the cut in both directions. */}
+          group — they must keep working across the cut in both directions.
+
+          Order is not cosmetic: R3F runs useFrame callbacks in subscription
+          order, so CameraRig goes last. It is the one that hands control back
+          to the visitor, and it should always be reading a camera the others
+          have finished writing. */}
       <Flight />
+      <Descent />
       <CameraRig />
     </Canvas>
   );
