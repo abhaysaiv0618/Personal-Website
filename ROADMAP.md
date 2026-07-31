@@ -645,6 +645,35 @@ Freesound or similar, or the toggle ships disabled. Muted by default either way.
 
 ---
 
+## Known bug — the canvas never sizes itself on load (blocks everything visual)
+
+**The scene is blank for every first-time visitor.** Found while verifying the
+route move; it predates that change and reproduces identically on the deployed
+`/system`, so it has been shipped this whole time.
+
+Measured on a fresh load of the production build, after a 3s settle:
+
+| | canvas `getBoundingClientRect()` |
+|---|---|
+| on load | **300 × 150** — the HTML default canvas size |
+| after one `window.dispatchEvent(new Event('resize'))` | 1440 × 748, correct |
+
+R3F never measures its container on mount, so the canvas keeps the intrinsic
+300×150 default and the scene is invisible. Any resize fires the ResizeObserver,
+the canvas takes its real size, and everything renders correctly — sun, six
+planets, Saturn's rings, orbit ellipses, starfield, title card. Nothing is wrong
+with the scene itself.
+
+Not a stacking or occlusion problem: hiding `.cosmos3d` alone changes nothing,
+and `.cosmos3d` is `z-index:-10` behind a positioned canvas ancestor. Not a
+context loss: `gl.isContextLost()` is `false` and the drawing buffer is allocated.
+The console is clean apart from a `THREE.Clock` deprecation warning.
+
+Prime suspect is the measured container — `SceneRoot`'s
+`h-[calc(100dvh-4rem)]` — reporting zero height at the moment R3F measures,
+which is a known interaction between `dvh` units and `react-use-measure` under
+`ssr:false` dynamic import. Untested; that is the next thing to check.
+
 ## Open decisions
 
 1. **Flight and descent pacing.** Duration, arc shape and the FOV speed cue were
@@ -652,11 +681,12 @@ Freesound or similar, or the toggle ships disabled. Muted by default either way.
    `lib/cut.ts` were then picked the same way. Deliberately deferred to a single
    tuning pass over both, rather than settling the flight and then discovering
    the landing changes what the flight should feel like.
-2. **Does the system read too small?** Partly answered in sprint 6, and the
-   answer is *it depends on the window*. At 1494x812 the planets are small
-   enough that the system view looks empty at a glance; at 1553x784 the same
-   scene frames well. So this is really a question about `fitSystemDistance`'s
-   margins on short windows rather than about `BASE_SIZE`. Original note:
+2. **Does the system read too small?** ⚠️ **The evidence behind this question was
+   an artifact of the canvas-sizing bug below.** "It depends on the window" was
+   observed by resizing — and resizing is precisely what makes the canvas size
+   itself correctly for the first time. Both readings were taken after a resize,
+   so the framing was never actually being judged at its on-load state, which was
+   blank. Re-open this only after that bug is fixed. Original note:
    dressing the sections as real bodies grew `SYSTEM_EXTENT` from 18.9 to 48.9,
    because Jupiter, Saturn and its rings need room the six equal balls did not.
    `BASE_SIZE` was raised to 1.8 to compensate, which recovers most of it — an
@@ -670,34 +700,39 @@ Freesound or similar, or the toggle ships disabled. Muted by default either way.
    `url: null`, so the crates show a tech stack and nothing else. Shipped that
    way by choice in sprint 6; supplying a URL is a one-line edit per project
    with no code change, and the panel grows a link on its own.
-5. **Push to production?** Done — `origin/main` is at `caf389b`, carrying sprints
-   1–7 and the Capital One fix. **But nothing is serving it**, and the reason is
-   the open question below.
+5. **Push to production?** Done, and now actually reachable — see *Hosting* below.
+   The route move in this commit makes the scene `/` rather than `/system`.
 
-## Hosting is unresolved — the push landed, the deploy did not
+## Hosting — resolved
 
-Git is correct and verified; the hosting link is not. Two different Vercel URLs
-are referenced by this repo and neither serves the new code:
+The earlier note here said the deploy had not landed. That was true when written
+and is no longer. Re-measured directly:
 
-| URL | Referenced by | State |
-|---|---|---|
-| `personal-website-nine-murex` | root `index.html:41-44` redirect | 200, but `age: 397443` (~4.6 days stale) and `/system` 404s |
-| `personal-website-two-fawn` | the GitHub repo's `homepage` field | 429, then connection failure |
+| URL | State |
+|---|---|
+| `personal-website-nine-murex` | 200, `age: 0`, building from `main` with root directory `web/` |
+| `personal-website-two-fawn` | still dead; the GitHub repo's `homepage` field still points at it and should be repointed |
 
-So the redirect visitors actually follow points at a project that is not building
-from `main`, and the project the repo claims is the homepage is rate-limited or
-paused. GitHub Pages is also enabled (`has_pages: true`) and serving, which is a
-third publishing path nobody is tracking.
+Vercel caught up on its own. What was left was not a hosting problem at all: the
+scene was built at `/system` and `web/src/app/page.tsx` still rendered the old
+`GraphNav`, with nothing anywhere linking the two. A visitor to the root URL had
+no path to the site. That is what this commit fixes — the scene now *is* `/`, and
+`/system` 308s to it.
 
-**This needs the Vercel dashboard** — which project is connected to
-`abhaysaiv0618/Personal-Website`, is it on `main`, is its root directory `web/`,
-and has the account hit a free-tier limit. Until that is answered, the root
-`index.html` redirect target is a guess.
+GitHub Pages remains enabled and serves root `index.html`, which redirects to
+`nine-murex`. That redirect became correct for free once `/` was the scene, but
+it is still a third publishing path with a URL hardcoded in a static file and no
+way to fail loudly when it goes stale.
 
-What *is* verified: a clean `npm ci` + `next build` on `main`'s exact tree
-succeeds, both routes prerender static, and serving that build locally returns
-200 at `/` and `/system` with every section in the HTML. The application is
-deployable; the deployment is misconfigured.
+**The lesson worth keeping:** every individual signal was green — push landed,
+`npm ci && next build` passed, the root URL returned 200 — and the site was still
+wrong, because "the build succeeded" and "the right bytes are at the right URL"
+are different assertions and only the first was being checked. Verify a deploy by
+asserting on *served content*:
+
+```
+curl -s https://personal-website-nine-murex.vercel.app/ | grep -o '<title>[^<]*</title>'
+```
 
 ## Tuning knobs
 

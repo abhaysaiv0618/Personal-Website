@@ -1,11 +1,25 @@
-import GraphNav from "@/components/graph/GraphNav";
+import type { Metadata } from "next";
+import SectionContent from "@/components/content/SectionContent";
+import SceneRoot from "@/components/system/SceneRoot";
+
+export const metadata: Metadata = {
+  title: "Abhaysai Vemula — Explore",
+  description:
+    "Explore Abhaysai Vemula's portfolio as a solar system: six worlds covering experience, education, projects and more.",
+};
 
 export default function Home() {
+  // This route stays a server component so SectionContent renders on the
+  // server. SceneRoot exists purely to hold the `ssr: false` boundary the
+  // WebGL canvas needs — putting that boundary here instead would take the
+  // content down with it, which is the bug being fixed.
+  //
+  // No max-width wrapper: SceneRoot sizes itself against the layout's pt-16
+  // with h-[calc(100dvh-4rem)], and a container would letterbox the canvas.
   return (
-    <section className="relative">
-      <div className="relative z-10 mx-auto max-w-screen-xl px-4 pt-8 pb-20 sm:px-6 lg:px-8">
-        <GraphNav />
-      </div>
-    </section>
+    <>
+      <SceneRoot />
+      <SectionContent />
+    </>
   );
 }
