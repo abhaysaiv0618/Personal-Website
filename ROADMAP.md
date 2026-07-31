@@ -670,8 +670,34 @@ Freesound or similar, or the toggle ships disabled. Muted by default either way.
    `url: null`, so the crates show a tech stack and nothing else. Shipped that
    way by choice in sprint 6; supplying a URL is a one-line edit per project
    with no code change, and the panel grows a link on its own.
-5. **Push to production?** Two pre-existing bug-fix commits and the Capital One
-   update are sitting unpushed on `main`.
+5. **Push to production?** Done — `origin/main` is at `caf389b`, carrying sprints
+   1–7 and the Capital One fix. **But nothing is serving it**, and the reason is
+   the open question below.
+
+## Hosting is unresolved — the push landed, the deploy did not
+
+Git is correct and verified; the hosting link is not. Two different Vercel URLs
+are referenced by this repo and neither serves the new code:
+
+| URL | Referenced by | State |
+|---|---|---|
+| `personal-website-nine-murex` | root `index.html:41-44` redirect | 200, but `age: 397443` (~4.6 days stale) and `/system` 404s |
+| `personal-website-two-fawn` | the GitHub repo's `homepage` field | 429, then connection failure |
+
+So the redirect visitors actually follow points at a project that is not building
+from `main`, and the project the repo claims is the homepage is rate-limited or
+paused. GitHub Pages is also enabled (`has_pages: true`) and serving, which is a
+third publishing path nobody is tracking.
+
+**This needs the Vercel dashboard** — which project is connected to
+`abhaysaiv0618/Personal-Website`, is it on `main`, is its root directory `web/`,
+and has the account hit a free-tier limit. Until that is answered, the root
+`index.html` redirect target is a guess.
+
+What *is* verified: a clean `npm ci` + `next build` on `main`'s exact tree
+succeeds, both routes prerender static, and serving that build locally returns
+200 at `/` and `/system` with every section in the HTML. The application is
+deployable; the deployment is misconfigured.
 
 ## Tuning knobs
 
