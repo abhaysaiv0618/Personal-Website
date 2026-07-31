@@ -24,7 +24,6 @@ export default function NavRing() {
   const travelTo = useSystemStore((s) => s.travelTo);
   const hover = useSystemStore((s) => s.hover);
   const clearFocus = useSystemStore((s) => s.clearFocus);
-  const land = useSystemStore((s) => s.land);
   const depart = useSystemStore((s) => s.depart);
 
   // Any scripted move — flight, descent, lift-off. The store ignores input
@@ -33,18 +32,11 @@ export default function NavRing() {
   const busy = isBusy(phase);
   const onSurface = phase === "surface" || phase === "departing";
 
-  // The one contextual control, which changes what it does with the phase.
-  //
-  // Deliberately a single button that relabels rather than two buttons that
-  // swap places. Landing unmounts nothing, so keyboard focus survives the
-  // whole sequence: press Enter to land and focus is still sitting on the
-  // control that now says "Return to orbit". Swapping elements would drop
-  // focus back to the top of the document at exactly the moment the visitor
-  // can't see the screen.
+  // There is no "land" control. Selecting a planet flies you there and lands
+  // you, as one gesture — the descent starts on its own a beat after arrival
+  // (see Descent.tsx), so the only thing this contextual button ever has to
+  // offer is the way back out.
   const actionPlanet = getPlanet(travelToId ?? focusedId ?? "");
-  const action = onSurface
-    ? { label: "Return to orbit", run: depart }
-    : { label: `Land on ${actionPlanet?.label ?? "planet"}`, run: land };
 
   return (
     <nav
@@ -93,13 +85,11 @@ export default function NavRing() {
           );
         })}
 
-        {/* Mounted from the moment a destination exists and never unmounted
-            until you're back in the system view — see the focus note above. */}
-        {actionPlanet && (
+        {onSurface && actionPlanet && (
           <li>
             <button
               type="button"
-              onClick={action.run}
+              onClick={depart}
               disabled={busy}
               className="rounded-full border px-3 py-1.5 text-xs font-semibold tracking-wide transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 disabled:cursor-default disabled:opacity-55 sm:px-4 sm:text-sm"
               style={{
@@ -108,7 +98,7 @@ export default function NavRing() {
                 backgroundColor: `${actionPlanet.accent}2b`,
               }}
             >
-              {action.label}
+              Return to orbit
             </button>
           </li>
         )}

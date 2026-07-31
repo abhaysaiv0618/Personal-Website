@@ -50,13 +50,36 @@ after an edit, that is usually why.
 ### Adding a section is a one-line change
 
 `web/src/lib/planets.ts` is the only file to edit. Append
-`{ id, label, color, accent }` to `PLANETS` and a fully working planet appears —
-orbit, speed, spacing, ring, nav button, keyboard slot.
+`{ id, label, body, color, accent, radiusRatio }` to `PLANETS` and a fully
+working planet appears — orbit, speed, spacing, guide ring, nav button,
+keyboard slot, landing veil colour and a whole derived surface to stand on.
 
-Orbit radius, orbit speed and start angle are all **derived from array index**,
-never stored, so inserting a planet in the middle re-spaces the whole system and
-the camera framing widens to suit. Speed falls off as `1/√r` (Kepler) and start
-angles step by the golden angle, which keeps the distribution good at any count.
+Each section is dressed as a **real solar-system body**, listed in true order
+out from the sun: Mercury=About, Venus=Experience, Earth=Education, Mars=
+Projects, Jupiter=Resume, Saturn=Contact. The section is what the visitor is
+choosing; the planet is the costume, so hover labels lead with the section and
+name the body underneath.
+
+Nothing spatial is stored. Speed falls off as `1/√r` (Kepler) and start angles
+step by the golden angle, which keeps the distribution good at any count.
+
+**Sizes are compressed, not real.** `radiusRatio` is the body's true radius in
+Earths; `SIZE_COMPRESSION` raises it to a fractional power, turning a 30x spread
+into about 2x. Ordering stays honest — Jupiter is unmistakably the giant — while
+Mercury stays big enough to click. Only the relative order carries meaning.
+
+**Spacing is a clearance, not a gap.** Orbits are laid out by walking outward
+from the sun leaving `MIN_CLEARANCE` between each body's outer edge and the
+next. A constant gap has to be sized for the largest pair and then strands the
+inner planets, and it fails *silently*: at a constant 4.2 the Jupiter/Saturn
+pair cleared each other by 0.11 units, so Saturn's rings would have appeared to
+graze Jupiter each time their orbits lined up. The sun is simply the first edge
+in that walk, and its own radius goes through the same compression — otherwise
+Jupiter ends up larger than the star it orbits.
+
+`SYSTEM_EXTENT` measures to the outer edge of the outermost body, not its orbit.
+Saturn's rings sweep ~3 units past the path its centre follows, and framing to
+the orbit alone clips them against the screen edge once per lap.
 
 Content lives in `web/src/lib/content.ts` and outbound URLs in
 `web/src/lib/links.ts`. The old `GraphNav` reads from both, so the two front
@@ -197,9 +220,18 @@ frame, where a single wrong frame would surface as the veil lifts.
 
 ## Sprint 5, as built — Landing
 
-Landing is an **explicit action**, not automatic on arrival: the flight still
-ends at `focused`, and a "Land on *X*" button starts the descent. That keeps the
-hover shot a state you can rest in, at the cost of one extra click to content.
+**Selecting a planet flies you there and lands you** — one gesture, no "Land"
+button. The descent starts on its own after `ARRIVAL_HOLD_MS`, a short beat that
+exists because the flight decelerates into its arrival and the dive accelerates
+out of it; butting those together reads as one lurch with a kink in the middle
+rather than as two moves.
+
+(This reverses the call made while planning, which was an explicit two-step
+landing. It was wrong on screen: the ceremony bought a hover state nobody wanted
+to sit in and put a click between a recruiter and the content.)
+
+Clicking the planet you are *already* focused on re-lands rather than no-opping,
+which is the only way back down after returning to orbit.
 
 The surface is **not the planet**. It's a flat disc at `SURFACE_ORIGIN`
 (0, −1200, 0), while the icosahedron you were orbiting sits untouched overhead.
@@ -286,9 +318,13 @@ Freesound or similar, or the toggle ships disabled. Muted by default either way.
    `lib/cut.ts` were then picked the same way. Deliberately deferred to a single
    tuning pass over both, rather than settling the flight and then discovering
    the landing changes what the flight should feel like.
-2. **Does the system read too small?** Unresolved since the framing fix. The
-   camera sits further back now that it fits the whole system. Dropping
-   `ORBIT_GAP` compacts everything and flight distances re-derive automatically.
+2. **Does the system read too small?** Still unresolved, and now *changed*:
+   dressing the sections as real bodies grew `SYSTEM_EXTENT` from 18.9 to 46.4,
+   because Jupiter, Saturn and its rings need room the six equal balls did not.
+   `BASE_SIZE` was raised to 1.8 to compensate, which recovers most of it — an
+   Earth-sized planet now occupies 0.039 of the system's radius against 0.045
+   before — but it has never been judged on screen. Lowering `MIN_CLEARANCE`
+   compacts everything and all distances re-derive.
 3. **Should the view angle change on resize?** It currently tilts with window
    shape, which is deliberate but reads as movement. Can be pinned to a constant
    angle at the cost of mobile framing.
@@ -302,9 +338,11 @@ Freesound or similar, or the toggle ships disabled. Muted by default either way.
 
 | What | Where |
 |---|---|
-| Orbit spacing / system size | `ORBIT_GAP`, `lib/planets.ts` |
+| Orbit spacing / system size | `MIN_CLEARANCE`, `lib/planets.ts` |
 | Overall orbit speed | `SPEED_SCALE`, `lib/planets.ts` |
-| Planet size | `BASE_SIZE`, `lib/planets.ts` |
+| Planet size | `BASE_SIZE`, `lib/planets.ts` (sun derives from it) |
+| Big-vs-small spread | `SIZE_COMPRESSION`, `lib/planets.ts` |
+| Beat before the dive | `ARRIVAL_HOLD_MS`, `lib/cut.ts` |
 | Flight duration | the `0.28` coefficient, `lib/flightPath.ts` |
 | Flight arc height | the `0.16` coefficient, `lib/flightPath.ts` |
 | Speed sensation | `SPEED_FOV_BOOST`, `components/system/Flight.tsx` |

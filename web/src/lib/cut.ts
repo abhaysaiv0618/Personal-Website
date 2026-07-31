@@ -63,6 +63,20 @@ export const SWAP_MS = 1150;
 export const VEIL_OUT_MS = 900;
 
 /**
+ * The beat between arriving beside a planet and starting to fall toward it.
+ *
+ * Landing follows a flight automatically — one click takes you from the system
+ * view to standing on a surface — but not *instantly*. Cutting straight from
+ * the flight's deceleration into the dive's acceleration reads as one
+ * continuous lurch with a kink in the middle. A short hold separates them into
+ * two moves: you arrive, the planet hangs there for a moment, then you drop.
+ *
+ * Short enough that nobody experiences it as waiting, long enough that the
+ * arrival registers as its own event.
+ */
+export const ARRIVAL_HOLD_MS = 600;
+
+/**
  * Reduced motion: same cut, no journey.
  *
  * The transition still has to be *seen* to be understood — jumping instantly

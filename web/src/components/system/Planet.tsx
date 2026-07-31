@@ -3,8 +3,8 @@
 import { useEffect, useRef } from "react";
 import { useFrame, type ThreeEvent } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
-import type { Group, Mesh } from "three";
-import type { Planet as PlanetData } from "@/lib/planets";
+import { DoubleSide, type Group, type Mesh } from "three";
+import { PLANET_RING, type Planet as PlanetData } from "@/lib/planets";
 import { registerPlanet, unregisterPlanet } from "@/lib/planetRegistry";
 import { isInSpace, useSystemStore } from "@/lib/store";
 
@@ -134,6 +134,38 @@ export default function Planet({ planet }: { planet: PlanetData }) {
           roughness={0.85}
         />
 
+        {/* Saturn. Tilted rather than laid flat, because a ring seen exactly
+            edge-on from the system's default viewing angle would vanish — the
+            tilt is what makes the silhouette read from anywhere.
+
+            Nested inside the body mesh so it inherits the hover scale and the
+            axial spin for free (a ring is rotationally symmetric, so spinning
+            it costs nothing visually). Not raycastable, for the same reason
+            the orbit rings aren't: it's a wide flat disc sitting in front of
+            its own planet and would swallow the click meant for it. */}
+        {planet.ring && (
+          <group rotation-x={-Math.PI / 2 + 0.42} rotation-y={0.2}>
+            <mesh raycast={() => null}>
+              <ringGeometry
+                args={[
+                  planet.size * PLANET_RING.inner,
+                  planet.size * PLANET_RING.outer,
+                  72,
+                ]}
+              />
+              <meshStandardMaterial
+                color={planet.accent}
+                side={DoubleSide}
+                transparent
+                opacity={0.72}
+                roughness={0.9}
+                emissive={planet.accent}
+                emissiveIntensity={isActive ? 0.35 : 0.12}
+              />
+            </mesh>
+          </group>
+        )}
+
         {isActive && inSpace && (
           // <Html> renders real DOM positioned in 3D space, so the label gets
           // crisp text and Tailwind styling instead of a rasterised texture.
@@ -141,21 +173,38 @@ export default function Planet({ planet }: { planet: PlanetData }) {
           // hundreds, since each one is a live DOM node being repositioned.
           <Html
             center
-            // Keep the label clear of the body at any planet size.
-            position={[0, planet.size * HOVER_SCALE + 0.5, 0]}
+            // Keep the label clear of the body at any planet size — and clear
+            // of the rings, which reach well past the surface on the one
+            // planet that has them.
+            position={[
+              0,
+              planet.size *
+                (planet.ring ? PLANET_RING.outer : 1) *
+                HOVER_SCALE +
+                0.5,
+              0,
+            ]}
             // The label must never swallow the click meant for the planet.
             pointerEvents="none"
             zIndexRange={[20, 0]}
           >
             <span
-              className="pointer-events-none select-none whitespace-nowrap rounded-full border px-3 py-1 text-xs font-medium tracking-wide backdrop-blur-sm sm:text-sm"
+              className="pointer-events-none flex select-none flex-col items-center whitespace-nowrap rounded-2xl border px-3 py-1 backdrop-blur-sm"
               style={{
                 color: planet.accent,
                 borderColor: `${planet.accent}66`,
                 backgroundColor: "rgba(5,5,5,0.72)",
               }}
             >
-              {planet.label}
+              <span className="text-xs font-medium tracking-wide sm:text-sm">
+                {planet.label}
+              </span>
+              {/* The body it's dressed as, secondary to the section it
+                  actually navigates to. The section is what the visitor is
+                  choosing; the planet is the costume. */}
+              <span className="text-[0.6rem] uppercase tracking-[0.2em] opacity-55 sm:text-[0.65rem]">
+                {planet.body}
+              </span>
             </span>
           </Html>
         )}

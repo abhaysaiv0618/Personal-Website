@@ -107,7 +107,16 @@ export const useSystemStore = create<SystemStore>((set, get) => ({
     // launching from a planet's surface would leave the surface scene mounted
     // with nobody driving the camera.
     if (phase !== "system" && phase !== "focused") return;
-    if (focusedId === id) return;
+
+    // Already parked here — which happens after returning from this planet's
+    // surface. There's no flight to make, but "select a planet" should still
+    // end with you standing on it, so drop straight into the descent. Without
+    // this, the one planet you cannot revisit is the one you just left.
+    if (focusedId === id) {
+      if (phase === "focused") set({ phase: "descending" });
+      return;
+    }
+
     set({ phase: "traveling", travelToId: id });
   },
 

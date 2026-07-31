@@ -3,7 +3,7 @@
 import { useLayoutEffect, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { PerspectiveCamera, Vector3 } from "three";
-import { cutTiming } from "@/lib/cut";
+import { ARRIVAL_HOLD_MS, cutTiming } from "@/lib/cut";
 import { getApproach, rememberApproach } from "@/lib/cameraMemory";
 import {
   CAMERA_FOV,
@@ -40,6 +40,7 @@ const DIVE_FLOOR = 1.05;
 export default function Descent() {
   const phase = useSystemStore((s) => s.phase);
   const focusedId = useSystemStore((s) => s.focusedId);
+  const land = useSystemStore((s) => s.land);
   const reduced = useReducedMotion();
   const { camera } = useThree();
 
@@ -68,6 +69,19 @@ export default function Descent() {
     if (phase === "departing") {
       from.current.copy(camera.position);
       return;
+    }
+
+    // Just arrived from a flight. Selecting a planet means going to it and
+    // landing on it — one gesture, not two — so the descent starts on its own
+    // after a short beat rather than waiting for a second click.
+    //
+    // The beat matters: the flight decelerates into its arrival and the dive
+    // accelerates out of it, and butting those together reads as one lurch
+    // with a kink in the middle rather than as two moves. Holding briefly lets
+    // the arrival land as its own event.
+    if (phase === "focused" && wasPhase === "traveling") {
+      const timer = setTimeout(land, ARRIVAL_HOLD_MS);
+      return () => clearTimeout(timer);
     }
 
     // Back in orbit after a landing. Put the camera exactly where it was when
@@ -109,7 +123,7 @@ export default function Descent() {
         perspective.updateProjectionMatrix();
       }
     }
-  }, [phase, focusedId, camera]);
+  }, [phase, focusedId, camera, land]);
 
   useFrame((_state, delta) => {
     if (phase !== "descending" && phase !== "departing") return;
