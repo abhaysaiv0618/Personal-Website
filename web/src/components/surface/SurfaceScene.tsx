@@ -27,6 +27,7 @@ import {
 import Rocket from "@/components/system/Rocket";
 import GazeFocus from "./GazeFocus";
 import Skyline from "./Skyline";
+import Weather from "./Weather";
 import SurfaceProps from "./SurfaceProps";
 
 /** Sky and fog hold until the rocket is clear of the pad, then thin out. */
@@ -91,6 +92,18 @@ export default function SurfaceScene({ planet }: { planet: Planet }) {
   const hemiRef = useRef<HemisphereLight>(null);
   const elapsed = useRef(0);
   const spaceColor = useMemo(() => new Color(SPACE_COLOR), []);
+  /**
+   * Lightning's current intensity, 0–1, written by Weather and applied here.
+   *
+   * The sky colour and the hemisphere light have exactly one writer — this
+   * component — for the same reason the camera has exactly one owner per phase.
+   * R3F runs useFrame in subscription order and children subscribe first, so a
+   * flash written inside Weather would be overwritten by the loop below later
+   * in the same frame and would never appear on screen. Passing a number up and
+   * applying it in one place makes that impossible rather than merely unlikely.
+   */
+  const flashRef = useRef(0);
+  const white = useMemo(() => new Color("#ffffff"), []);
 
   useFrame((_state, delta) => {
     const rocket = rocketRef.current;
@@ -105,9 +118,11 @@ export default function SurfaceScene({ planet }: { planet: Planet }) {
       // otherwise open on the blackened sky the previous departure left behind.
       elapsed.current = 0;
       if (rocket) rocket.position.y = rocketOffset[1];
-      if (sky) sky.copy(palette.sky);
+      // The one place lightning is allowed to reach the scene.
+      const flash = flashRef.current;
+      if (sky) sky.copy(palette.sky).lerp(white, flash * 0.5);
       if (fog) fog.density = fogDensity;
-      if (hemi) hemi.intensity = 1.15;
+      if (hemi) hemi.intensity = 1.15 + flash * 1.5;
       return;
     }
 
@@ -219,6 +234,11 @@ export default function SurfaceScene({ planet }: { planet: Planet }) {
             modelling, and mounted before the props so the reading order of
             this file matches the depth order of the scene. */}
         <Skyline planet={planet} palette={palette} />
+
+        {/* The air. Particles, drifting sky bands, and — on storm worlds only —
+            lightning, which reports its intensity through flashRef rather than
+            lighting the scene itself. */}
+        <Weather planet={planet} palette={palette} flashRef={flashRef} />
 
         <SurfaceProps planet={planet} palette={palette} />
 

@@ -569,6 +569,34 @@ The general lesson from the second one: **"it renders but I can't see it" is a
 placement question at least as often as a rendering one.** Check where the thing
 actually is before you check whether it drew.
 
+**Weather is three layers** (`components/surface/Weather.tsx`): a wrapping
+particle field, slow bands drifting across the sky, and — on storm worlds only —
+lightning.
+
+The particle volume is a **fixed box around the landing site**, not one that
+follows the viewer, and that is only correct because `SurfaceControls` pins the
+camera's position and lets you change only its orientation. You look around and
+never move, so the weather never has to chase you. In a scene where you could
+walk this would have to wrap in the camera's own frame instead.
+
+Two rules on lightning, both load-bearing:
+
+- **It publishes an intensity through `flashRef`; it does not light the scene.**
+  Sky colour and hemisphere intensity have exactly one writer, `SurfaceScene`,
+  for the same reason the camera has one owner per phase. R3F runs `useFrame` in
+  subscription order and **children subscribe before parents**, so a flash
+  written inside `Weather` would be overwritten by the parent later in the same
+  frame and would never appear. Same silent failure as two components easing one
+  camera.
+- **Off entirely under reduced motion**, not dimmed or slowed. A full-screen
+  brightness strobe is the single most likely thing in this codebase to do
+  somebody actual harm.
+
+One frame-rate bug worth remembering: the strike originally set strength to 1 and
+decayed it *in the same frame*, so on a slow frame one delta could exceed the
+whole decay and the flash would be consumed before it ever drew. `else if` gives
+it one guaranteed frame at full strength and makes it frame-rate independent.
+
 ## Sprint 8 — Polish and promote
 
 Perf tiers (`usePerfTier`, drei `<PerformanceMonitor>`, adaptive DPR), the audio
@@ -633,6 +661,12 @@ Freesound or similar, or the toggle ships disabled. Muted by default either way.
 | Atmosphere thickness | `FOG_DENSITY`, `lib/surface.ts` |
 | Surface colours | `surfacePalette()`, `lib/surface.ts` |
 | Rock field | `ROCK_COUNT` / `SCATTER_RADIUS`, `lib/surface.ts` |
+| Per-world weather + settlement | the entry in `lib/planets.ts` |
+| What each weather kind does | `WEATHER`, `lib/world.ts` |
+| Skyline size / haze target | `SKYLINE_VISIBILITY` / `SKYLINE_REFERENCE`, `lib/world.ts` |
+| Settlement silhouettes | `SETTLEMENT`, `lib/world.ts` |
+| Weather volume | `VOLUME`, `components/surface/Weather.tsx` |
+| Lightning frequency | `STRIKE_INTERVAL`, `components/surface/Weather.tsx` |
 | Ground kept clear of rocks | `CLEARING_RADIUS`, `lib/surface.ts` (props must fit inside it) |
 | Where the props stand | `PROP_RADIUS` / `ARC_SPAN_DEG` / `STAGGER`, `lib/props.ts` |
 | How big each prop is | `PROP_DIMENSIONS`, `lib/props.ts` |
