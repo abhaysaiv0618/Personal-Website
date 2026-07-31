@@ -3,7 +3,7 @@
 import { Canvas } from "@react-three/fiber";
 import { PLANET_SYSTEM, SYSTEM_EXTENT } from "@/lib/planets";
 import { CAMERA_FOV } from "@/lib/framing";
-import { useSystemStore } from "@/lib/store";
+import { isInSpace, useSystemStore } from "@/lib/store";
 import CameraRig from "./CameraRig";
 import Flight from "./Flight";
 import Orbits from "./Orbits";
@@ -13,6 +13,8 @@ import Sun from "./Sun";
 
 export default function SolarSystem() {
   const clearFocus = useSystemStore((s) => s.clearFocus);
+  const phase = useSystemStore((s) => s.phase);
+  const inSpace = isInSpace(phase);
 
   return (
     <Canvas
@@ -34,21 +36,45 @@ export default function SolarSystem() {
       // the natural "deselect" gesture.
       onPointerMissed={() => clearFocus()}
     >
-      {/* Just enough ambient to keep the far side of a planet readable. The
-          sun's own pointLight does the real work; light coming from the
-          centre is what makes the orbits legible. */}
-      <ambientLight intensity={0.22} />
+      {/* The whole solar system, hidden rather than unmounted while the
+          visitor is standing on a surface.
 
-      <Starfield />
-      <Sun />
-      <Orbits />
+          Unmounting would look equivalent and is not. Each planet's orbit is
+          *integrated* — Planet.tsx accumulates `rotation.y += delta * speed`
+          on a mutable object rather than deriving an angle from the clock — so
+          unmounting resets every planet to its start angle and you return to a
+          rearranged system. (Deriving from the clock instead is not free
+          either: freezing orbits during a flight depends on integration, since
+          you can't pause a shared clock without tracking accumulated time.)
 
-      {/* Every planet comes from the array — nothing here knows there are
-          six. Append to PLANETS in lib/planets.ts and it shows up. */}
-      {PLANET_SYSTEM.map((planet) => (
-        <Planet key={planet.id} planet={planet} />
-      ))}
+          Hiding costs nothing. WebGLRenderer skips an invisible subtree
+          entirely during projection, so both the draw calls and the Sun's
+          pointLight contribution drop to zero, while useFrame keeps running
+          and the planets keep orbiting. You come back to a system that carried
+          on without you, which reads as alive rather than paused.
 
+          One thing hiding does *not* buy: three's raycaster ignores
+          `visible`, so these planets still hit-test while you're on a surface.
+          That is handled by the phase guards in the store, not here. */}
+      <group visible={inSpace}>
+        {/* Just enough ambient to keep the far side of a planet readable. The
+            sun's own pointLight does the real work; light coming from the
+            centre is what makes the orbits legible. */}
+        <ambientLight intensity={0.22} />
+
+        <Starfield />
+        <Sun />
+        <Orbits />
+
+        {/* Every planet comes from the array — nothing here knows there are
+            six. Append to PLANETS in lib/planets.ts and it shows up. */}
+        {PLANET_SYSTEM.map((planet) => (
+          <Planet key={planet.id} planet={planet} />
+        ))}
+      </group>
+
+      {/* Camera drivers render nothing, so they sit outside the visibility
+          group — they must keep working across the cut in both directions. */}
       <Flight />
       <CameraRig />
     </Canvas>

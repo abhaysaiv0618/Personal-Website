@@ -6,7 +6,7 @@ import { Html } from "@react-three/drei";
 import type { Group, Mesh } from "three";
 import type { Planet as PlanetData } from "@/lib/planets";
 import { registerPlanet, unregisterPlanet } from "@/lib/planetRegistry";
-import { useSystemStore } from "@/lib/store";
+import { isInSpace, useSystemStore } from "@/lib/store";
 
 /** Extra size applied while hovered or focused. */
 const HOVER_SCALE = 1.28;
@@ -38,6 +38,16 @@ export default function Planet({ planet }: { planet: PlanetData }) {
   const isHovered = hoveredId === planet.id;
   const isFocused = focusedId === planet.id;
   const isActive = isHovered || isFocused;
+
+  // Hiding the system (SolarSystem.tsx) does not hide this planet's label,
+  // because <Html> is real DOM parented to the page rather than geometry the
+  // renderer skips. And `focusedId` stays set for the planet you landed on, so
+  // without this its label would hang in mid-air over the surface scene,
+  // projected from a body a thousand units above your head.
+  //
+  // The same applies to hit-testing: three's raycaster ignores `visible`, so
+  // these bodies are still pickable while you stand on one of them.
+  const inSpace = isInSpace(phase);
 
   // Publish this body so CameraRig can read its live world position each
   // frame. It orbits, so its position can't be derived from lib/planets.ts —
@@ -88,6 +98,7 @@ export default function Planet({ planet }: { planet: PlanetData }) {
   });
 
   const handleOver = (e: ThreeEvent<PointerEvent>) => {
+    if (!inSpace) return;
     // Without stopPropagation the ray continues through and any object behind
     // this one also reports a hover.
     e.stopPropagation();
@@ -123,7 +134,7 @@ export default function Planet({ planet }: { planet: PlanetData }) {
           roughness={0.85}
         />
 
-        {isActive && (
+        {isActive && inSpace && (
           // <Html> renders real DOM positioned in 3D space, so the label gets
           // crisp text and Tailwind styling instead of a rasterised texture.
           // Fine for six occasional labels; it would be the wrong tool for

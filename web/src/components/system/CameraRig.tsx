@@ -45,7 +45,17 @@ export default function CameraRig() {
   const focusedId = useSystemStore((s) => s.focusedId);
   const phase = useSystemStore((s) => s.phase);
   const reduced = useReducedMotion();
-  const traveling = phase === "traveling";
+  /**
+   * Whether this rig currently owns the camera.
+   *
+   * Every other phase hands it to someone else: `traveling` to Flight,
+   * `descending`/`departing` to Descent, `surface` to SurfaceControls. Stated
+   * as one positive condition rather than a growing list of things to exclude,
+   * so a phase added later defaults to *not* letting this rig drive — the safe
+   * direction. A forgotten exclusion is a camera fight; a forgotten inclusion
+   * is a camera that sits still and is obvious in one second of testing.
+   */
+  const rigOwns = phase === "system" || phase === "focused";
 
   // Solved from the live viewport, so a resize reframes instead of clipping.
   // Angle and distance are solved together: the angle adapts to window shape,
@@ -98,13 +108,15 @@ export default function CameraRig() {
     const controls = controlsRef.current;
     if (!controls) return;
 
-    // Flight.tsx owns the camera during a flight. Yielding entirely — rather
-    // than blending — is what keeps the chase shot clean; two components
-    // easing the same object toward different targets is the stutter this
-    // whole ownership scheme exists to avoid.
-    if (traveling) {
-      // Our record of the planet's position goes stale while Flight drives,
-      // so drop it. The first frame after arrival re-establishes it.
+    // Somebody else owns the camera right now. Yielding entirely — rather
+    // than blending — is what keeps their shot clean; two components easing
+    // the same object toward different targets is the stutter this whole
+    // ownership scheme exists to avoid.
+    if (!rigOwns) {
+      // Our record of the planet's position goes stale while they drive, so
+      // drop it. The first frame after we get the camera back re-establishes
+      // it, which is also what stops a return from the surface — where the
+      // camera was a thousand units away — from being read as orbital drift.
       hasStation.current = false;
       return;
     }
@@ -229,8 +241,11 @@ export default function CameraRig() {
       // makeDefault lets other drei helpers discover these controls rather
       // than each grabbing the camera independently.
       makeDefault
-      // Disabled mid-move so dragging can't fight the scripted camera.
-      enabled={!animating.current && !traveling}
+      // Disabled mid-move so dragging can't fight the scripted camera, and
+      // disabled outright whenever another component owns the camera —
+      // damping alone is enough to keep writing to a position Descent or
+      // SurfaceControls just set.
+      enabled={!animating.current && rigOwns}
       enablePan={false}
       enableDamping={!reduced}
       dampingFactor={0.06}
