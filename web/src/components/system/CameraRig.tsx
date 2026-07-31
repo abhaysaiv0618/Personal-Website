@@ -127,30 +127,18 @@ export default function CameraRig() {
       // line up close.
       offset.current.y += distance * 0.22;
     } else {
-      // Returning to the overview: restore the *solved* elevation and
-      // distance rather than reusing whatever direction the camera inherited
-      // from the planet it was parked at.
+      // Returning to the overview restores the solved framing outright — the
+      // identical expression used for the first-frame snap above, so the view
+      // you come back to is provably the view you loaded on.
       //
-      // Those two values are one answer, not two independent numbers — the
-      // fit was computed for a specific angle, so keeping the angle and
-      // replacing the distance (or vice versa) silently voids the guarantee
-      // that the outer ring stays on screen.
-      //
-      // The inherited direction is also degenerate near the inner planets: a
-      // camera parked just past a planet on the far side of the sun sits
-      // almost directly above the origin, and normalising that yields a
-      // straight-down vector — the top-down shot with a clipped outer ring.
-      //
-      // Azimuth is kept so someone who rotated to view from another side
-      // stays there; only elevation and distance are restored.
-      const azimuth = Math.atan2(camera.position.x, camera.position.z);
-      const horizontal =
-        Math.hypot(viewDirection.x, viewDirection.z) * systemDistance;
-      offset.current.set(
-        Math.sin(azimuth) * horizontal,
-        viewDirection.y * systemDistance,
-        Math.cos(azimuth) * horizontal
-      );
+      // Nothing is carried over from the focused camera. Direction and
+      // distance are one answer, not two independent numbers: the solver
+      // finds the closest distance at which the outer ring stays on screen
+      // *for a specific angle*, so substituting either one voids it. And the
+      // inherited direction is arbitrary anyway — the camera was parked
+      // wherever its planet happened to be in orbit, which is a position the
+      // visitor never chose.
+      offset.current.copy(viewDirection).multiplyScalar(systemDistance);
     }
 
     desiredPosition.current.copy(desiredTarget.current).add(offset.current);
