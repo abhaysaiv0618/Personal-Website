@@ -119,14 +119,21 @@ export default function Planet({ planet }: { planet: PlanetData }) {
     // right between the approach and the dive, which made one continuous move
     // read as three separate events. Anything that changes as a result of a
     // discrete state flip still has to arrive continuously on screen.
+    // Slower than the scale on purpose. A size change reads as responsive
+    // when it snaps; a brightness change reads as a *flash*, and the eye is
+    // far more sensitive to it. At the scale constant this took ~0.35s, which
+    // still registered as the planet flicking on at the end of the approach.
+    // ~0.8s makes it a swell that runs underneath the descent instead of an
+    // event that punctuates it.
+    const kGlow = 1 - Math.pow(0.06, delta);
     const material = materialRef.current;
     if (material) {
       material.emissiveIntensity = MathUtils.lerp(
         material.emissiveIntensity,
         isActive ? EMISSIVE_ACTIVE : EMISSIVE_REST,
-        k
+        kGlow
       );
-      material.emissive.lerp(isActive ? activeColor : restColor, k);
+      material.emissive.lerp(isActive ? activeColor : restColor, kGlow);
     }
   });
 

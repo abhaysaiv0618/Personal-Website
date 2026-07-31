@@ -143,6 +143,35 @@ export default function CameraRig() {
       return;
     }
 
+    // First frame back after somebody else drove the camera — the end of a
+    // flight, or a return from a surface.
+    //
+    // Take the camera exactly as handed over. Whoever was driving already put
+    // it where it belongs: Flight ends on the very hover position this rig
+    // would pick (hoverPosition is idempotent, and orbits are frozen mid-
+    // flight so the planet has not moved), and Descent snaps to that same spot
+    // on the way back. There is nothing to ease toward.
+    //
+    // But `controls.target` is stale — it still points at wherever we were
+    // looking when we handed the camera over, usually the planet we just left.
+    // And OrbitControls.update() *forces* camera.lookAt(target). So easing the
+    // target across, as the scripted move below does, whips the whole view
+    // around to the old planet on the handoff frame and then swings it back.
+    // That is the "screen turns the other way" at the end of every flight.
+    //
+    // Snapping the target first makes update() a no-op: offset is measured
+    // from the new target, so the position it writes back is the position it
+    // already had, and the lookAt matches what Flight was showing. Nothing
+    // moves.
+    if (!hasStation.current) {
+      controls.target.copy(desiredTarget.current);
+      controls.update();
+      lastTargetPosition.current.copy(desiredTarget.current);
+      hasStation.current = true;
+      animating.current = false;
+      return;
+    }
+
     if (!animating.current) {
       const parked = focusedId ? getPlanet(focusedId) : undefined;
 

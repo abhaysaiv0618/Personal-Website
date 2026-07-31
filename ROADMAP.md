@@ -256,7 +256,19 @@ four discontinuities landed on the same frame — arrive, stall, flash, drop:
 | Flight ran `easeInOutCubic`, arriving at zero velocity | `easeInCoast` — accelerate, then coast in at ~1.25x average, still moving |
 | Descent built speed again from rest | Ease-*out*, entering at ~2x average and braking |
 | FOV boost returned to baseline on the phase flip | Speed-driven, and the dive continues from wherever the flight left it |
-| `emissiveIntensity` switched via a React prop | Eased on the material inside `useFrame` |
+| `emissiveIntensity` switched via a React prop | Eased on the material inside `useFrame`, slower than the scale |
+| `controls.target` eased from the *previous* planet on handover | Snapped on the first frame the rig regains the camera |
+
+That last one was the "screen turns the other way". `OrbitControls.update()`
+**forces** `camera.lookAt(controls.target)`, and the target was still pointing
+at wherever we looked when the camera was handed over. Easing it across whipped
+the view back to the planet we had just left and then swung it forward again.
+Snapping it makes `update()` a no-op — offset is measured from the new target,
+so the position it writes back is the one it already had.
+
+The general shape: **`update()` on a controls object is not a read, it is a
+write.** Anything stale on that object gets applied to the camera the moment
+you call it, whatever the component that just handed over had set.
 
 The order matters: shortening the pause could never have fixed this, because
 the pause was not the problem. Two eases both flattening to zero velocity at
