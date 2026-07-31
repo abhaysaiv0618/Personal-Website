@@ -4,8 +4,7 @@ Rebuilding the portfolio navigation as a first-person solar system: six planets
 orbiting a sun, click one and your rocket flies you there, land on its surface,
 and your info is embedded in that world as objects you interact with.
 
-**Status: sprints 1–4 merged to `main`. Sprint 5 is built on `sprint-5-landing`,
-awaiting a visual pass — see "Sprint 5, as built" below for what still needs eyes.**
+**Status: sprints 1–5 complete and merged to `main`. Sprint 6 is next.**
 
 Nothing is pushed. `origin/main` is still at `9628d28`, so the live Vercel site
 runs the old CSS orbit and still lists Bank of America as the current role.
@@ -20,8 +19,8 @@ runs the old CSS orbit and still lists Bank of America as the current role.
 | 2 | Sun, 6 orbiting planets, orbit rings, starfield, data model | merged |
 | 3 | Hover labels, click-to-focus, nav ring, solved camera framing | merged |
 | 4 | First-person flight, hover standoff, orbital station-keeping | merged |
-| 5 | Descent, the cut, and a surface to stand on | **built, unverified** |
-| 6 | Diegetic content on each surface + accessibility | planned |
+| 5 | Descent, the cut, a surface to stand on, and a launch out | merged |
+| 6 | Diegetic content on each surface + accessibility | **next** |
 | 7 | Performance tiers, audio, promote to `/` | planned |
 
 The 3D scene lives at **`/system`**. The old CSS orbit still serves **`/`** and
@@ -352,11 +351,22 @@ Three things worth not relitigating:
   *not* freeze during it (unlike a flight). A lerp toward a live target
   self-corrects; `Flight`'s bezier is baked once and can't.
 
-**Still needs eyes.** No visual verification was possible in the session that
-built this — the whole sprint is type-checked and lint-clean but unexecuted.
-Specifically unproven: whether the veil's timing actually hides the swap, how
-deep the dive reads, whether the surface palettes look like their planets, and
-whether the return lands without a visible correction.
+**What was verified, and what wasn't.** The desktop path — fly, arrive, dive,
+stand, look around, launch out, return to orbit — was watched repeatedly and
+reworked against what it actually looked like; four of the commits in this
+sprint exist only because of that. The session that wrote it had no browser
+access, so everything else is type-checked and reasoned but unexecuted.
+
+Still unproven, in rough priority order:
+
+- **Reduced motion.** Every camera move is skipped and the cut collapses to
+  ~200ms. Never once run.
+- **Keyboard only.** Tab to the nav ring, Enter to travel, Enter to leave a
+  surface. The buttons are real, but the path has not been walked.
+- **Narrow viewports.** The rocket's framing is solved per-aspect and checked
+  arithmetically down to 0.5, never on a phone.
+- **The other four worlds.** Palettes and seeded rock fields are derived, so
+  they are *consistent* by construction — but only a couple have been looked at.
 
 ## Sprint 6 — The content
 
