@@ -4,7 +4,10 @@ Rebuilding the portfolio navigation as a first-person solar system: six planets
 orbiting a sun, click one and your rocket flies you there, land on its surface,
 and your info is embedded in that world as objects you interact with.
 
-**Status: sprints 1–6 complete. Sprint 7 is next.**
+**Status: sprints 1–7 built. Sprint 8 is next.**
+
+Sprints 6 and 7 are on branches and unmerged: `sprint-7-worlds` builds on
+`sprint-6-content`, so merging means taking both.
 
 Nothing is pushed. `origin/main` is still at `9628d28`, so the live Vercel site
 runs the old CSS orbit and still lists Bank of America as the current role.
@@ -21,8 +24,8 @@ runs the old CSS orbit and still lists Bank of America as the current role.
 | 4 | First-person flight, hover standoff, orbital station-keeping | merged |
 | 5 | Descent, the cut, a surface to stand on, and a launch out | merged |
 | 6 | Diegetic content on each surface + accessibility | built, on `sprint-6-content` |
-| 7 | Gaze-driven panel, settlements, weather | **in progress**, on `sprint-7-worlds` |
-| 8 | Performance tiers, audio, promote to `/` | planned |
+| 7 | Gaze-driven panel, settlements, weather | built, on `sprint-7-worlds` |
+| 8 | Performance tiers, audio, promote to `/` | **next** |
 
 The 3D scene lives at **`/system`**. The old CSS orbit still serves **`/`** and
 stays there until sprint 7 promotes the route — that is what keeps the site
@@ -596,6 +599,35 @@ One frame-rate bug worth remembering: the strike originally set strength to 1 an
 decayed it *in the same frame*, so on a slow frame one delta could exceed the
 whole decay and the flash would be consumed before it ever drew. `else if` gives
 it one guaranteed frame at full strength and makes it frame-rate independent.
+
+### What sprint 7 verified in a browser
+
+**Confirmed by watching it:**
+
+- A panel is **already open on landing**, before the veil finishes lifting, with
+  no interaction at all.
+- Turning the view swaps the panel to the object you turn toward, with no
+  flicker when the view sits between two.
+- Facing the rocket **closes** it — the cone acting as a dismiss gesture.
+- Clicking pins (the close button appears); Escape unpins and gaze immediately
+  takes the panel back, which is the intended fallback rather than a bug.
+- Three worlds looked at and clearly distinct: Venus (storm + spires), Earth
+  (rain + city), Mars (dust + domes).
+- **Lightning**, caught mid-decay with the interval temporarily shortened.
+- **Reduced motion with that short interval still in place**: no flash on any
+  frame, and consecutive frames pixel-identical because the particles freeze too.
+- Departing with weather running: the veil closes black, nothing fights it.
+
+**Not verified:**
+
+- **Narrow viewports**, still. `resize_window` reports success and the captured
+  viewport never changes. Now the top risk by some distance — particle counts
+  and skyline density both scale badly on a small screen, and the bottom sheet
+  has never been seen. Worth ten minutes with a real phone.
+- Mercury (`ruins`) and Jupiter (`platforms`) skylines, and Saturn's snow.
+- Frame cost. Nothing here has been profiled; sprint 8's perf tiers should gate
+  `WEATHER[...].count` and `SKYLINE_COUNT` first, since they are the two numbers
+  this sprint added that scale with the device rather than the content.
 
 ## Sprint 8 — Polish and promote
 
