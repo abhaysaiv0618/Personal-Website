@@ -1,9 +1,11 @@
 "use client";
 
 import { Canvas } from "@react-three/fiber";
-import { PLANET_SYSTEM, SYSTEM_EXTENT } from "@/lib/planets";
+import { PLANET_SYSTEM, SYSTEM_EXTENT, getPlanet } from "@/lib/planets";
 import { CAMERA_FOV } from "@/lib/framing";
 import { isInSpace, useSystemStore } from "@/lib/store";
+import SurfaceControls from "@/components/surface/SurfaceControls";
+import SurfaceScene from "@/components/surface/SurfaceScene";
 import CameraRig from "./CameraRig";
 import Flight from "./Flight";
 import Orbits from "./Orbits";
@@ -14,7 +16,9 @@ import Sun from "./Sun";
 export default function SolarSystem() {
   const clearFocus = useSystemStore((s) => s.clearFocus);
   const phase = useSystemStore((s) => s.phase);
+  const focusedId = useSystemStore((s) => s.focusedId);
   const inSpace = isInSpace(phase);
+  const landedOn = !inSpace ? getPlanet(focusedId ?? "") : undefined;
 
   return (
     <Canvas
@@ -72,6 +76,23 @@ export default function SolarSystem() {
           <Planet key={planet.id} planet={planet} />
         ))}
       </group>
+
+      {/* The surface, mounted only while you're on one.
+
+          Mounted at the swap rather than preloaded during the descent, because
+          its `<color attach="background">` would paint over the starfield the
+          moment it appeared. Building the geometry costs a frame or two — and
+          those frames land behind an opaque veil, which is exactly the sort of
+          cost the cut exists to absorb. If it ever becomes visible, preloading
+          it invisible with the background attached separately is the fix, and
+          that is a sprint 7 concern.
+
+          SurfaceScene stays up through `departing` so there's a world beneath
+          you while the veil closes again. SurfaceControls does not: lift-off
+          is Descent's camera, and letting a drag turn the head mid-departure
+          would be two owners writing the same object. */}
+      {landedOn && <SurfaceScene planet={landedOn} />}
+      {phase === "surface" && <SurfaceControls />}
 
       {/* Camera drivers render nothing, so they sit outside the visibility
           group — they must keep working across the cut in both directions. */}

@@ -9,18 +9,18 @@ import type { Group, Mesh } from "three";
  * and it matches the faceted look of the planets for free.
  *
  * Not rendered during flight: the experience is first person, so the camera
- * *is* the rocket and there is nothing to look at from outside. This exists
- * for Sprint 5, where it sits parked on the planet surface after landing.
+ * *is* the rocket and there is nothing to look at from outside. Its one
+ * appearance is parked on a surface after landing — which is why `engine`
+ * exists. A parked rocket with its exhaust still burning reads as about to
+ * take off, and the glow would be lighting the ground around your feet from a
+ * vehicle that is switched off.
  *
  * Everything is built pointing along +Y, which is the default axis for cone
- * and cylinder geometry. Flight.tsx then rotates the whole group so that +Y
- * lands on the direction of travel, so nothing here needs to know about
- * headings.
+ * and cylinder geometry, so a caller that wants it aimed somewhere rotates the
+ * whole group and nothing here needs to know about headings.
  */
-const Rocket = forwardRef<Group, { color?: string }>(function Rocket(
-  { color = "#e2e8f0" },
-  ref
-) {
+const Rocket = forwardRef<Group, { color?: string; engine?: boolean }>(
+  function Rocket({ color = "#e2e8f0", engine = true }, ref) {
   const flameRef = useRef<Mesh>(null);
 
   useFrame((state) => {
@@ -64,21 +64,32 @@ const Rocket = forwardRef<Group, { color?: string }>(function Rocket(
         </group>
       ))}
 
-      {/* Exhaust. Basic material so it glows at full brightness regardless of
-          where the sun is — it emits light rather than receiving it. */}
-      <mesh ref={flameRef} position-y={-0.34}>
-        <coneGeometry args={[0.15, 0.4, 7]} />
-        <meshBasicMaterial color="#fbbf24" transparent opacity={0.9} />
-      </mesh>
-      <mesh position-y={-0.46} scale={0.62}>
-        <coneGeometry args={[0.15, 0.4, 7]} />
-        <meshBasicMaterial color="#fff7ed" transparent opacity={0.75} />
-      </mesh>
+      {engine && (
+        <>
+          {/* Exhaust. Basic material so it glows at full brightness regardless
+              of where the sun is — it emits light rather than receiving it. */}
+          <mesh ref={flameRef} position-y={-0.34}>
+            <coneGeometry args={[0.15, 0.4, 7]} />
+            <meshBasicMaterial color="#fbbf24" transparent opacity={0.9} />
+          </mesh>
+          <mesh position-y={-0.46} scale={0.62}>
+            <coneGeometry args={[0.15, 0.4, 7]} />
+            <meshBasicMaterial color="#fff7ed" transparent opacity={0.75} />
+          </mesh>
 
-      {/* Throws light on the rocket's own underside and anything it passes. */}
-      <pointLight position={[0, -0.4, 0]} intensity={3} distance={6} color="#fbbf24" />
+          {/* Throws light on the rocket's own underside and anything it
+              passes. */}
+          <pointLight
+            position={[0, -0.4, 0]}
+            intensity={3}
+            distance={6}
+            color="#fbbf24"
+          />
+        </>
+      )}
     </group>
   );
-});
+  }
+);
 
 export default Rocket;
