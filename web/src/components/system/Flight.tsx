@@ -5,6 +5,8 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { PerspectiveCamera, Vector3 } from "three";
 import {
   buildFlightPath,
+  easeInCoast,
+  easeInCoastSpeed,
   easeInOutCubic,
   type Flight as Path,
 } from "@/lib/flightPath";
@@ -66,17 +68,15 @@ export default function Flight() {
   const destination = useRef(new Vector3());
 
   useEffect(() => {
-    const restoreFov = () => {
-      const perspective = camera as PerspectiveCamera;
-      if (perspective.isPerspectiveCamera && perspective.fov !== CAMERA_FOV) {
-        perspective.fov = CAMERA_FOV;
-        perspective.updateProjectionMatrix();
-      }
-    };
-
     if (phase !== "traveling" || !travelToId) {
       flight.current = null;
-      restoreFov();
+      // Deliberately *not* restoring the lens here. A landing always follows a
+      // flight, and Descent continues the widened field of view from wherever
+      // this leaves it — snapping back to normal on the frame the phase flips
+      // would put a visible hitch right in the middle of one continuous move.
+      // Every path out of the sequence sets the lens explicitly: the descent
+      // drives it, SurfaceControls sets it on standing up, and Descent resets
+      // it when returning to orbit.
       return;
     }
 
@@ -120,8 +120,6 @@ export default function Flight() {
       lookFrom,
       lookTo: planetPosition.current.clone(),
     };
-
-    return restoreFov;
   }, [phase, travelToId, focusedId, reduced, arrive, camera]);
 
   useFrame((_state, delta) => {
@@ -130,7 +128,9 @@ export default function Flight() {
 
     active.elapsed += delta;
     const progress = Math.min(active.elapsed / active.duration, 1);
-    const t = easeInOutCubic(progress);
+    // Accelerate, then coast in still moving — the descent takes the motion
+    // from here rather than starting it over.
+    const t = easeInCoast(progress);
 
     // getPointAt walks the curve by arc length rather than raw parameter.
     // Without it a bezier travels faster through its straighter stretches and
@@ -145,23 +145,25 @@ export default function Flight() {
     lookAt.current.copy(active.lookFrom).lerp(active.lookTo, turn);
     camera.lookAt(lookAt.current);
 
-    // Widen the lens at peak speed and return it by arrival. From inside a
-    // cockpit this is most of the sensation of accelerating; without it the
-    // motion is smooth but weightless.
+    // Widen the lens with speed. From inside a cockpit this is most of the
+    // sensation of accelerating; without it the motion is smooth but
+    // weightless.
+    //
+    // Driven by actual speed rather than by a sine of progress, so it stays
+    // wide through the coast instead of narrowing back to normal exactly as
+    // we arrive. The descent then continues from this value — the lens never
+    // returns to rest between the two moves, because the camera never does.
     const perspective = camera as PerspectiveCamera;
     if (perspective.isPerspectiveCamera) {
-      perspective.fov = CAMERA_FOV + Math.sin(progress * Math.PI) * SPEED_FOV_BOOST;
+      perspective.fov =
+        CAMERA_FOV + easeInCoastSpeed(progress) * SPEED_FOV_BOOST;
       perspective.updateProjectionMatrix();
     }
 
     if (progress >= 1) {
       flight.current = null;
-      if (perspective.isPerspectiveCamera) {
-        perspective.fov = CAMERA_FOV;
-        perspective.updateProjectionMatrix();
-      }
-      // We are already exactly where CameraRig wants us, so the handoff moves
-      // nothing.
+      // Still moving, still wide. Nothing is reset here — the descent picks
+      // up both the position and the lens on the very next frame.
       arrive();
     }
   });

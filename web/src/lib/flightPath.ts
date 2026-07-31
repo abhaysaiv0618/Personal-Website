@@ -51,7 +51,50 @@ export function buildFlightPath(start: Vector3, end: Vector3): Flight {
  * Pacing is the whole difference between a vehicle and a slide. Feeding raw
  * linear t into the curve gives motion that starts and stops at full speed,
  * which reads as mechanical no matter how good the path is.
+ *
+ * Still used for the *turn* — swinging to face the destination genuinely does
+ * want to settle — but no longer for the travel itself. See below.
  */
 export function easeInOutCubic(t: number): number {
   return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+}
+
+/** Fraction of the trip spent accelerating before settling into a cruise. */
+const COAST_FRACTION = 0.4;
+
+/**
+ * Accelerate away, then hold that speed all the way in.
+ *
+ * The flight used to run on easeInOutCubic, which arrives at exactly zero
+ * velocity — and a landing always follows a flight now, so that stop was
+ * pure dead air. The descent then had to build speed again from nothing, and
+ * the two flat spots met at the same instant. No amount of shortening the
+ * pause between them fixes that, because the pause was never the problem: the
+ * *momentum* was going to zero either way.
+ *
+ * So this ramps up over the opening stretch and then coasts, arriving at about
+ * 1.25x average speed with the camera still moving. The descent picks that
+ * motion up rather than starting it (see Descent.tsx), which is what turns two
+ * moves into one continuous approach.
+ *
+ * Deceleration is not missing by accident — nothing here ever has to stop.
+ */
+export function easeInCoast(t: number): number {
+  const p = COAST_FRACTION;
+  // Normalised so the whole trip still covers exactly 1 in exactly 1.
+  const norm = 1 - p / 2;
+  if (t < p) return (t * t) / (2 * p) / norm;
+  return (p / 2 + (t - p)) / norm;
+}
+
+/**
+ * Speed along that ease, normalised to peak at 1.
+ *
+ * Broken out because the field-of-view cue should follow how fast you are
+ * actually going rather than a sine of progress. Tied to progress, the lens
+ * narrows back to normal exactly as you arrive — a visible "settling" on the
+ * frame before the descent, which is the opposite of the read we want.
+ */
+export function easeInCoastSpeed(t: number): number {
+  return t < COAST_FRACTION ? t / COAST_FRACTION : 1;
 }

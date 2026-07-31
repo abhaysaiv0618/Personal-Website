@@ -4,7 +4,7 @@ Rebuilding the portfolio navigation as a first-person solar system: six planets
 orbiting a sun, click one and your rocket flies you there, land on its surface,
 and your info is embedded in that world as objects you interact with.
 
-**Status: sprints 1–4 complete and merged to `main`. Sprint 5 is next.**
+**Status: sprints 1–5 complete and merged to `main`. Sprint 6 is next.**
 
 Nothing is pushed. `origin/main` is still at `9628d28`, so the live Vercel site
 runs the old CSS orbit and still lists Bank of America as the current role.
@@ -19,8 +19,8 @@ runs the old CSS orbit and still lists Bank of America as the current role.
 | 2 | Sun, 6 orbiting planets, orbit rings, starfield, data model | merged |
 | 3 | Hover labels, click-to-focus, nav ring, solved camera framing | merged |
 | 4 | First-person flight, hover standoff, orbital station-keeping | merged |
-| 5 | Descent and landing on a surface | **next** |
-| 6 | Diegetic content on each surface + accessibility | planned |
+| 5 | Descent, the cut, a surface to stand on, and a launch out | merged |
+| 6 | Diegetic content on each surface + accessibility | **next** |
 | 7 | Performance tiers, audio, promote to `/` | planned |
 
 The 3D scene lives at **`/system`**. The old CSS orbit still serves **`/`** and
@@ -49,13 +49,50 @@ after an edit, that is usually why.
 ### Adding a section is a one-line change
 
 `web/src/lib/planets.ts` is the only file to edit. Append
-`{ id, label, color, accent }` to `PLANETS` and a fully working planet appears —
-orbit, speed, spacing, ring, nav button, keyboard slot.
+`{ id, label, body, color, accent, radiusRatio }` to `PLANETS` and a fully
+working planet appears — orbit, speed, spacing, guide ring, nav button,
+keyboard slot, landing veil colour and a whole derived surface to stand on.
 
-Orbit radius, orbit speed and start angle are all **derived from array index**,
-never stored, so inserting a planet in the middle re-spaces the whole system and
-the camera framing widens to suit. Speed falls off as `1/√r` (Kepler) and start
-angles step by the golden angle, which keeps the distribution good at any count.
+Each section is dressed as a **real solar-system body**, listed in true order
+out from the sun: Mercury=About, Venus=Experience, Earth=Education, Mars=
+Projects, Jupiter=Resume, Saturn=Contact. The section is what the visitor is
+choosing; the planet is the costume, so hover labels lead with the section and
+name the body underneath.
+
+Nothing spatial is stored. Speed falls off as `1/√r` (Kepler) and start angles
+step by the golden angle, which keeps the distribution good at any count.
+
+**Sizes are compressed, not real.** `radiusRatio` is the body's true radius in
+Earths; `SIZE_COMPRESSION` raises it to a fractional power, turning a 30x spread
+into about 2x. Ordering stays honest — Jupiter is unmistakably the giant — while
+Mercury stays big enough to click. Only the relative order carries meaning.
+
+**Spacing is a clearance, not a gap.** Orbits are laid out by walking outward
+from the sun leaving `MIN_CLEARANCE` between each body's outer edge and the
+next. A constant gap has to be sized for the largest pair and then strands the
+inner planets, and it fails *silently*: at a constant 4.2 the Jupiter/Saturn
+pair cleared each other by 0.11 units, so Saturn's rings would have appeared to
+graze Jupiter each time their orbits lined up.
+
+The sun is the first edge in that walk, with two adjustments that are worth
+keeping:
+
+- It is measured to the **corona**, not the solid body. `SUN_CORONA_SCALE` is
+  shared with `Sun.tsx` so the two cannot disagree about how big the star looks.
+- It uses `SUN_CLEARANCE` (4.5), far larger than `MIN_CLEARANCE` (1.8), because
+  **geometric separation is not perceptual separation next to a light source.**
+  At a plain `MIN_CLEARANCE`, Mercury cleared the corona by 3.8% of the system
+  radius and was invisible in the glare — sprint 4's arrangement gave it 9.9%.
+  This is the bug that made the About Me planet disappear.
+
+The sun's own radius is the one number in the file capped by hand rather than
+derived: its true 109 Earth radii compresses to 2.81, which leaves Mercury
+nowhere to go. Capped at 2.2, it still clears Jupiter (3.96 vs 3.06) — a star
+smaller than its own planet is wrong to anyone.
+
+`SYSTEM_EXTENT` measures to the outer edge of the outermost body, not its orbit.
+Saturn's rings sweep ~3 units past the path its centre follows, and framing to
+the orbit alone clips them against the screen edge once per lap.
 
 Content lives in `web/src/lib/content.ts` and outbound URLs in
 `web/src/lib/links.ts`. The old `GraphNav` reads from both, so the two front
@@ -66,14 +103,38 @@ ends cannot drift apart.
 `web/src/lib/store.ts`. Everything hangs off this:
 
 ```
-system ──travelTo──▶ traveling ──arrive──▶ focused ──travelTo──▶ traveling
-   ▲                                          │
-   └──────────────── clearFocus ───────────────┘
+system ──travelTo──▶ traveling ──arrive──▶ focused ──land──▶ descending
+   ▲                                        │  ▲                 │
+   └───────────── clearFocus ───────────────┘  │           touchDown
+                                               │                 ▼
+                                  returnToOrbit ──── departing ◀─┴─ surface
+                                                         ▲      depart
+                                                         └──────┘
 ```
 
-Sprint 5 adds `surface` between `focused` and its exit.
+Six phases for three places to be, because the extra states are not about
+where the visitor is — they are about **who owns the camera**:
 
-### Five invariants — breaking any of these caused a real bug
+| Phase | Owner |
+|---|---|
+| `system`, `focused` | `CameraRig` |
+| `traveling` | `Flight` |
+| `descending`, `departing` | `Descent` |
+| `surface` | `SurfaceControls` |
+
+A new *kind* of camera move means a new phase, not a flag on an old one.
+`CameraRig` states its claim positively (`phase === "system" || "focused"`) so
+a phase added later defaults to not letting it drive — the safe direction, since
+a forgotten exclusion is a camera fight and a forgotten inclusion is a camera
+that visibly sits still.
+
+Every transition is guarded **in the store**, not at the call sites. One action
+has several entry points and a rule enforced at each will be missed at the next
+one added. `clearFocus` is the sharp case: it's wired to the canvas's
+`onPointerMissed`, so on a surface, releasing a drag-to-look counts as
+"clicked nothing" and would have thrown the visitor back into orbit.
+
+### Seven invariants — breaking any of these caused a real bug
 
 **1. Discrete state in the store, continuous state on the object.**
 Which planet is hovered or focused re-renders UI, so it lives in zustand.
@@ -84,6 +145,13 @@ component needs to re-render for them, so they are mutated directly inside
 
 Related: `planetRegistry.ts` is a plain `Map`, not state, because the camera
 needs a planet's live world position every frame.
+
+The corollary is easy to miss and cost a visible bug: **a discrete state flip
+must still arrive on screen continuously.** `Planet.tsx` drove
+`emissiveIntensity` from `isActive` as a React prop, so the moment a flight
+arrived the planet *flicked* brighter in one frame. Hover scale had been eased
+on the object since sprint 3; the glow beside it had not. Anything that changes
+because a store value changed needs easing on the object, not a new prop value.
 
 **2. The camera has exactly one owner, arbitrated by phase.**
 Three things want it: OrbitControls, `CameraRig`'s scripted eases, and
@@ -111,9 +179,50 @@ moves the point every time.
 
 **5. Not everything should be raycastable.**
 Hit-testing walks every raycastable object on every pointer move. The starfield
-(3,500 points) and the orbit rings both opt out with `raycast={() => null}`. The
-rings are a correctness issue, not just perf: a ring is a wide flat disc sitting
-in front of its planet and would swallow the click meant for it.
+(3,500 points), the orbit rings and the surface rocks all opt out with
+`raycast={() => null}`. The rings are a correctness issue, not just perf: a ring
+is a wide flat disc sitting in front of its planet and would swallow the click
+meant for it.
+
+**6. `visible={false}` hides rendering, not existence.**
+The solar system is *hidden* rather than unmounted while you're on a surface,
+because each orbit is **integrated** (`rotation.y += delta * speed` on a mutable
+object) rather than derived from the clock — unmount it and every planet resets
+to `startAngle`. Deriving instead isn't free either: freezing orbits during a
+flight depends on integration, since you can't pause a shared clock without
+tracking accumulated pause time.
+
+But hiding only stops the *renderer*. Anything else walking the scene graph
+still sees the subtree, and two things bit here:
+
+- **three's raycaster ignores `visible`** — invisible planets still hit-test.
+- **`<Html>` labels are real DOM**, parented to the page rather than drawn by
+  the renderer. `focusedId` stays set for the planet you landed on, so its
+  label hung in mid-air over the surface, projected from a body 1,200 units
+  overhead.
+
+Both are gated on phase in `Planet.tsx`. The general rule: `visible` is a render
+optimisation, so anything reading the graph for a purpose *other than drawing*
+needs its own guard.
+
+**7. Don't synchronise two timelines — order them.**
+The dive runs in `useFrame` (render loop); the veil runs in CSS (compositor).
+They will drift and cannot be made to agree. `lib/cut.ts` instead enforces
+`VEIL_DELAY_MS + VEIL_IN_MS <= SWAP_MS <= MOVE_MS`, so the screen is provably
+solid before the world underneath it changes — in both directions, which are
+timed very differently.
+
+The consequence is the whole reason sprint 5 was cheap: **behind an opaque veil
+a camera may teleport 1,200 units and nobody can tell.** The exact-handoff
+problem that made sprint 4 delicate simply does not arise. The gap between
+`SWAP_MS` and `DESCENT_MS` is not slack either — it sets how much of the frame
+the planet fills at the moment of the cut.
+
+The one place a deadline still bites is the *return*: `returnToOrbit` fires
+while the veil is opaque but already opening, so `Descent` snaps the camera back
+to its remembered vantage in a `useLayoutEffect` — synchronously on commit,
+before paint and before the next animation frame — rather than on the next
+frame, where a single wrong frame would surface as the veil lifts.
 
 ### Other decisions worth not relitigating
 
@@ -130,29 +239,134 @@ in front of its planet and would swallow the click meant for it.
 
 ---
 
-## Sprint 5 — Landing
+## Sprint 5, as built — Landing
 
-**Goal:** descend from the hover position and end standing on a surface with the
-rocket parked beside you.
+**Selecting a planet flies you there and lands you** — one gesture, no "Land"
+button, no pause. `ARRIVAL_HOLD_MS` is 0.
 
-**The key shortcut: do not land on the actual planet sphere.** Curvature and
-scale mismatch is a tarpit. Sell it as a cut: camera dives → planet fills the
-frame → fade to that planet's atmosphere colour → fade up on a flat surface
-scene with the rocket already parked. Continuous to the eye, a fraction of the
-work.
+(This reverses the call made while planning, which was an explicit two-step
+landing. It was wrong on screen: the ceremony bought a hover state nobody wanted
+to sit in and put a click between a recruiter and the content.)
 
-**Concepts:** scene swapping and how to hide a cut — fog for depth, a tinted
-hemisphere light to sell an alien sky, and how a well-timed fade makes two
-unrelated scenes read as one move.
+**Approach and descent are one move, and that took four separate fixes.** All
+four discontinuities landed on the same frame — arrive, stall, flash, drop:
 
-**Files:**
-- `components/surface/SurfaceScene.tsx` — ground disc, tinted fog, sky
-- `components/ui/FadeOverlay.tsx` — the cut, driven by the phase machine
-- `Rocket.tsx` finally gets rendered, parked (it exists and is unused today)
-- `store.ts` — implement the `surface` phase and a `depart` action
+| Was | Now |
+|---|---|
+| Flight ran `easeInOutCubic`, arriving at zero velocity | `easeInCoast` — accelerate, then coast in at ~1.25x average, still moving |
+| Descent built speed again from rest | Ease-*out*, entering at ~2x average and braking |
+| FOV boost returned to baseline on the phase flip | Speed-driven, and the dive continues from wherever the flight left it |
+| `emissiveIntensity` switched via a React prop | Eased on the material inside `useFrame`, slower than the scale |
+| `controls.target` eased from the *previous* planet on handover | Snapped on the first frame the rig regains the camera |
 
-**Watch for:** the same handoff class of bug as sprint 4. Descent must end
-exactly where the surface camera starts, or the cut will reveal a jump.
+That last one was the "screen turns the other way". `OrbitControls.update()`
+**forces** `camera.lookAt(controls.target)`, and the target was still pointing
+at wherever we looked when the camera was handed over. Easing it across whipped
+the view back to the planet we had just left and then swung it forward again.
+Snapping it makes `update()` a no-op — offset is measured from the new target,
+so the position it writes back is the one it already had.
+
+The general shape: **`update()` on a controls object is not a read, it is a
+write.** Anything stale on that object gets applied to the camera the moment
+you call it, whatever the component that just handed over had set.
+
+The order matters: shortening the pause could never have fixed this, because
+the pause was not the problem. Two eases both flattening to zero velocity at
+the same instant was. Once the flight coasts in, the descent's job stops being
+to *build* momentum and becomes to *receive* it — which is why it now
+decelerates, reversing the ease that was correct when it started from a
+standstill. Measured across real trips, starting from rest meant up to a **7.8x
+speed drop** on the handoff frame; entering at 2x keeps every trip within about
+2x either way.
+
+A landing brakes. That it also solves the handoff is the useful part.
+
+**Leaving is a launch you watch, not a fade.** The two directions through the
+cut are shaped as opposites on purpose (`DESCENT` and `ASCENT` in `lib/cut.ts`):
+
+- **Down** — the veil closes immediately, in the planet's accent. It reads as
+  dropping into an atmosphere, and there is nothing to watch anyway.
+- **Up** — the veil *waits* 1.6s. The rocket lights, leaves the pad and climbs;
+  the camera holds still for the first ~600ms so you see it go, then rises after
+  it and holds a constant ~39° chase angle. Only then does the screen close.
+
+The veil going up is **black**, and the sky gets there first: `SurfaceScene`
+lerps the background toward `SPACE_COLOR`, thins the fog and dims the
+hemisphere light as the rocket climbs. So black closes over an already-black
+sky and barely registers as a veil. Fading up through the planet's accent —
+which is what it used to do — flashed the screen bright at the exact moment you
+were supposedly leaving for space.
+
+Two details worth keeping:
+
+- The rocket's height is a **pure function** (`rocketAscent`) used by both
+  `SurfaceScene` (to draw it) and `Descent` (to chase it). A shared mutable
+  position would work, but two readers of one pure function cannot drift and
+  there is nothing to reset between launches.
+- Fog thins to 15%, never to zero. With no fog at all the ground disc's rim
+  becomes visible from altitude, and a world with a visible edge is worse than
+  a hazy one.
+
+This is also the **only scripted camera move in the codebase that has to look
+good** rather than merely end in the right place — everything else happens
+behind an opaque screen.
+
+Clicking the planet you are *already* focused on re-lands rather than no-opping,
+which is the only way back down after returning to orbit.
+
+The surface is **not the planet**. It's a flat disc at `SURFACE_ORIGIN`
+(0, −1200, 0), while the icosahedron you were orbiting sits untouched overhead.
+Three cheap tricks do the work of geometry: fog (hides the disc's rim, and does
+all the depth cueing on a plane with no other depth information in it), a tinted
+hemisphere light (a grey rock under a coloured sky still looks like a grey rock
+on Earth), and a palette pulled from the planet's own `color`/`accent` — the two
+scenes share no geometry at all, so **colour continuity is the only thread
+connecting them.**
+
+Everything about a world is derived from its entry, so adding a section is still
+a one-line change: palette from the two colours, rock layout from a seeded PRNG
+(mulberry32) hashed off the `id`. Seeded, not random — a returning visitor must
+get the same world under the same name.
+
+**Files added:** `lib/cut.ts`, `lib/surface.ts`, `lib/cameraMemory.ts`,
+`components/ui/FadeOverlay.tsx`, `components/surface/SurfaceScene.tsx`,
+`components/surface/SurfaceControls.tsx`, `components/system/Descent.tsx`.
+`Rocket.tsx` finally renders, parked, with a new `engine={false}`.
+
+Three things worth not relitigating:
+
+- **`FadeOverlay` owns the cut timing**, not the 3D scene. The swap has exactly
+  one safety condition — the screen must be solid — and the overlay is the
+  screen. It fires `touchDown`/`returnToOrbit` on a **timer, not
+  `transitionend`**, which doesn't fire in a backgrounded tab and would strand
+  the phase machine forever. Fail forward, like `Flight` calling `arrive()` when
+  its destination is missing.
+- **`SurfaceControls` is not OrbitControls.** OrbitControls orbits *around a
+  target*, so turning your head would carry you along an arc and end with you
+  looking back at where you stood. Feet planted with free orientation is a
+  different scheme, not a configuration of the same one. It sets
+  `camera.rotation.order = "YXZ"` — in the default `XYZ` the yaw and pitch
+  interact and the horizon rolls as you look around.
+- **The descent re-reads the planet's live position every frame**, so orbits do
+  *not* freeze during it (unlike a flight). A lerp toward a live target
+  self-corrects; `Flight`'s bezier is baked once and can't.
+
+**What was verified, and what wasn't.** The desktop path — fly, arrive, dive,
+stand, look around, launch out, return to orbit — was watched repeatedly and
+reworked against what it actually looked like; four of the commits in this
+sprint exist only because of that. The session that wrote it had no browser
+access, so everything else is type-checked and reasoned but unexecuted.
+
+Still unproven, in rough priority order:
+
+- **Reduced motion.** Every camera move is skipped and the cut collapses to
+  ~200ms. Never once run.
+- **Keyboard only.** Tab to the nav ring, Enter to travel, Enter to leave a
+  surface. The buttons are real, but the path has not been walked.
+- **Narrow viewports.** The rocket's framing is solved per-aspect and checked
+  arithmetically down to 0.5, never on a phone.
+- **The other four worlds.** Palettes and seeded rock fields are derived, so
+  they are *consistent* by construction — but only a couple have been looked at.
 
 ## Sprint 6 — The content
 
@@ -191,12 +405,18 @@ Freesound or similar, or the toggle ships disabled. Muted by default either way.
 
 ## Open decisions
 
-1. **Flight pacing.** Duration, arc shape and the FOV speed cue were all picked
-   blind and never judged on screen. Sprint 5's landing inherits this pacing, so
-   it is cheaper to settle first.
-2. **Does the system read too small?** Unresolved since the framing fix. The
-   camera sits further back now that it fits the whole system. Dropping
-   `ORBIT_GAP` compacts everything and flight distances re-derive automatically.
+1. **Flight and descent pacing.** Duration, arc shape and the FOV speed cue were
+   picked blind and never judged on screen; the descent and cut durations in
+   `lib/cut.ts` were then picked the same way. Deliberately deferred to a single
+   tuning pass over both, rather than settling the flight and then discovering
+   the landing changes what the flight should feel like.
+2. **Does the system read too small?** Still unresolved, and now *changed*:
+   dressing the sections as real bodies grew `SYSTEM_EXTENT` from 18.9 to 48.9,
+   because Jupiter, Saturn and its rings need room the six equal balls did not.
+   `BASE_SIZE` was raised to 1.8 to compensate, which recovers most of it — an
+   Earth-sized planet now occupies 0.037 of the system's radius against 0.045
+   before — but it has never been judged on screen. Lowering `MIN_CLEARANCE`
+   compacts everything and all distances re-derive.
 3. **Should the view angle change on resize?** It currently tilts with window
    shape, which is deliberate but reads as movement. Can be pinned to a constant
    angle at the cost of mobile framing.
@@ -210,11 +430,22 @@ Freesound or similar, or the toggle ships disabled. Muted by default either way.
 
 | What | Where |
 |---|---|
-| Orbit spacing / system size | `ORBIT_GAP`, `lib/planets.ts` |
+| Orbit spacing / system size | `MIN_CLEARANCE`, `lib/planets.ts` |
 | Overall orbit speed | `SPEED_SCALE`, `lib/planets.ts` |
-| Planet size | `BASE_SIZE`, `lib/planets.ts` |
+| Planet size | `BASE_SIZE`, `lib/planets.ts` (sun derives from it) |
+| Big-vs-small spread | `SIZE_COMPRESSION`, `lib/planets.ts` |
+| Beat before the dive | `ARRIVAL_HOLD_MS`, `lib/cut.ts` |
 | Flight duration | the `0.28` coefficient, `lib/flightPath.ts` |
 | Flight arc height | the `0.16` coefficient, `lib/flightPath.ts` |
 | Speed sensation | `SPEED_FOV_BOOST`, `components/system/Flight.tsx` |
 | How close you park | `HOVER_DISTANCE_FACTOR`, `lib/framing.ts` |
 | Space reserved for UI | `FRAME_MARGINS`, `components/system/CameraRig.tsx` |
+| Cut timing / dive depth | `DESCENT` in `lib/cut.ts` |
+| How long you watch the launch | `ASCENT.VEIL_DELAY_MS`, `lib/cut.ts` |
+| Launch height / chase framing | `ASCENT_HEIGHT` / `CHASE_GAP`, `lib/surface.ts` |
+| Dive plunge cue | `DIVE_FOV_BOOST`, `components/system/Descent.tsx` |
+| Atmosphere thickness | `FOG_DENSITY`, `lib/surface.ts` |
+| Surface colours | `surfacePalette()`, `lib/surface.ts` |
+| Rock field | `ROCK_COUNT` / `SCATTER_RADIUS`, `lib/surface.ts` |
+| Look-around speed | `SENSITIVITY`, `components/surface/SurfaceControls.tsx` |
+| Rocket framing | `DESIRED_AZIMUTH_DEG` / `VERTICAL_FILL`, `lib/surface.ts` |

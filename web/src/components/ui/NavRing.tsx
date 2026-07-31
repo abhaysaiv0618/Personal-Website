@@ -1,7 +1,7 @@
 "use client";
 
-import { PLANET_SYSTEM } from "@/lib/planets";
-import { useSystemStore } from "@/lib/store";
+import { PLANET_SYSTEM, getPlanet } from "@/lib/planets";
+import { isBusy, useSystemStore } from "@/lib/store";
 
 /**
  * The persistent planet switcher.
@@ -24,7 +24,19 @@ export default function NavRing() {
   const travelTo = useSystemStore((s) => s.travelTo);
   const hover = useSystemStore((s) => s.hover);
   const clearFocus = useSystemStore((s) => s.clearFocus);
-  const traveling = phase === "traveling";
+  const depart = useSystemStore((s) => s.depart);
+
+  // Any scripted move — flight, descent, lift-off. The store ignores input
+  // during these anyway; this is so the controls *look* unavailable rather
+  // than silently doing nothing.
+  const busy = isBusy(phase);
+  const onSurface = phase === "surface" || phase === "departing";
+
+  // There is no "land" control. Selecting a planet flies you there and lands
+  // you, as one gesture — the descent starts on its own a beat after arrival
+  // (see Descent.tsx), so the only thing this contextual button ever has to
+  // offer is the way back out.
+  const actionPlanet = getPlanet(travelToId ?? focusedId ?? "");
 
   return (
     <nav
@@ -44,10 +56,13 @@ export default function NavRing() {
               <button
                 type="button"
                 onClick={() => travelTo(planet.id)}
-                // Locked mid-flight: the store ignores a second launch anyway,
-                // but a button that visibly does nothing is worse than one
-                // that shows it's unavailable.
-                disabled={traveling}
+                // Locked mid-flight and while standing on a surface: the store
+                // ignores the launch in both cases anyway, but a button that
+                // visibly does nothing is worse than one that shows it's
+                // unavailable. From a surface you leave via the action button
+                // below, which is one deliberate step rather than a silent
+                // teleport out of a world you were reading.
+                disabled={busy || onSurface}
                 aria-busy={travelToId === planet.id}
                 // Hovering a button highlights the matching planet in 3D, so
                 // the two navigation surfaces stay visibly linked.
@@ -70,12 +85,30 @@ export default function NavRing() {
           );
         })}
 
-        {(focusedId || traveling) && (
+        {onSurface && actionPlanet && (
+          <li>
+            <button
+              type="button"
+              onClick={depart}
+              disabled={busy}
+              className="rounded-full border px-3 py-1.5 text-xs font-semibold tracking-wide transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 disabled:cursor-default disabled:opacity-55 sm:px-4 sm:text-sm"
+              style={{
+                color: actionPlanet.accent,
+                borderColor: `${actionPlanet.accent}aa`,
+                backgroundColor: `${actionPlanet.accent}2b`,
+              }}
+            >
+              Return to orbit
+            </button>
+          </li>
+        )}
+
+        {focusedId && !onSurface && (
           <li>
             <button
               type="button"
               onClick={clearFocus}
-              disabled={traveling}
+              disabled={busy}
               className="rounded-full border border-white/12 px-3 py-1.5 text-xs font-medium tracking-wide text-white/60 transition-colors duration-200 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 disabled:cursor-default disabled:opacity-55 sm:px-4 sm:text-sm"
             >
               Back to system
