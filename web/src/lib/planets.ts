@@ -132,21 +132,43 @@ const BASE_SIZE = 1.8;
  */
 const SIZE_COMPRESSION = 0.22;
 
-/** The sun, in Earth radii. It is genuinely this much bigger than everything. */
-const SUN_RADIUS_RATIO = 109;
+/**
+ * The sun's radius, in Earth radii *as drawn*.
+ *
+ * The true figure is 109, and even squashed by SIZE_COMPRESSION that lands at
+ * 2.81 — big enough that Mercury ends up sitting in the star's glare with
+ * nowhere to put it. So this one number is capped by hand rather than derived.
+ * It still has to clear Jupiter (3.06 units, the largest planet), which 2.2
+ * does comfortably at 3.96; a sun smaller than one of its planets is wrong to
+ * anyone, astronomy or not.
+ */
+const SUN_SIZE_FACTOR = 2.2;
+
+/** Radius of the sun's body. */
+export const SUN_RADIUS = BASE_SIZE * SUN_SIZE_FACTOR;
 
 /**
- * The sun is just the innermost body, so it goes through the same compression
- * as everything else rather than carrying a hand-set radius.
- *
- * It used to be a flat 2.2, which was fine when every planet was about the
- * same size. Once Jupiter became genuinely large that constant would have made
- * a planet *bigger than the star it orbits* — a detail nobody has to know
- * astronomy to find wrong. Deriving it means the relationship holds no matter
- * how the compression is retuned.
+ * The transparent shell Sun.tsx draws as corona, as a multiple of the body.
+ * Shared so the orbit walk below spaces Mercury off what is actually *visible*
+ * rather than off the solid core.
  */
-export const SUN_RADIUS =
-  BASE_SIZE * Math.pow(SUN_RADIUS_RATIO, SIZE_COMPRESSION);
+export const SUN_CORONA_SCALE = 1.22;
+
+/**
+ * Clearance between the sun and the innermost orbit — much larger than the
+ * clearance between two planets, and not for geometric reasons.
+ *
+ * The sun is the scene's only real light source and it renders at full
+ * brightness through an unlit material. Whatever sits beside it competes with
+ * that glare, so geometric separation is not perceptual separation: at a plain
+ * MIN_CLEARANCE, Mercury cleared the corona by 3.8% of the system's radius and
+ * simply could not be picked out, where sprint 4's arrangement gave it 9.9%.
+ * 4.5 restores that ratio.
+ *
+ * The lesson is the reusable part: spacing rules derived from geometry alone
+ * are wrong next to anything that emits light.
+ */
+const SUN_CLEARANCE = 4.5;
 /** Scales all orbital speeds at once. Raise for a livelier system. */
 const SPEED_SCALE = 0.9;
 
@@ -194,7 +216,10 @@ export const PLANET_SYSTEM: Planet[] = [];
 // The sun is the first edge to clear, which is what puts the innermost orbit
 // outside it automatically instead of relying on a hand-tuned FIRST_ORBIT that
 // silently stops being correct the moment the sun or the planets are resized.
-let previousEdge = SUN_RADIUS;
+//
+// Measured to the corona, not the core: the glow is what the innermost planet
+// actually has to be seen against.
+let previousEdge = SUN_RADIUS * SUN_CORONA_SCALE;
 let radius = 0;
 
 PLANETS.forEach((def, index) => {
@@ -203,7 +228,7 @@ PLANETS.forEach((def, index) => {
   const ring = def.ring ?? false;
   const edge = outerEdge(size, ring);
 
-  radius += previousEdge + edge + MIN_CLEARANCE;
+  radius += previousEdge + edge + (index === 0 ? SUN_CLEARANCE : MIN_CLEARANCE);
   previousEdge = edge;
 
   PLANET_SYSTEM.push({

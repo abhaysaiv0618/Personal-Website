@@ -73,9 +73,23 @@ from the sun leaving `MIN_CLEARANCE` between each body's outer edge and the
 next. A constant gap has to be sized for the largest pair and then strands the
 inner planets, and it fails *silently*: at a constant 4.2 the Jupiter/Saturn
 pair cleared each other by 0.11 units, so Saturn's rings would have appeared to
-graze Jupiter each time their orbits lined up. The sun is simply the first edge
-in that walk, and its own radius goes through the same compression — otherwise
-Jupiter ends up larger than the star it orbits.
+graze Jupiter each time their orbits lined up.
+
+The sun is the first edge in that walk, with two adjustments that are worth
+keeping:
+
+- It is measured to the **corona**, not the solid body. `SUN_CORONA_SCALE` is
+  shared with `Sun.tsx` so the two cannot disagree about how big the star looks.
+- It uses `SUN_CLEARANCE` (4.5), far larger than `MIN_CLEARANCE` (1.8), because
+  **geometric separation is not perceptual separation next to a light source.**
+  At a plain `MIN_CLEARANCE`, Mercury cleared the corona by 3.8% of the system
+  radius and was invisible in the glare — sprint 4's arrangement gave it 9.9%.
+  This is the bug that made the About Me planet disappear.
+
+The sun's own radius is the one number in the file capped by hand rather than
+derived: its true 109 Earth radii compresses to 2.81, which leaves Mercury
+nowhere to go. Capped at 2.2, it still clears Jupiter (3.96 vs 3.06) — a star
+smaller than its own planet is wrong to anyone.
 
 `SYSTEM_EXTENT` measures to the outer edge of the outermost body, not its orbit.
 Saturn's rings sweep ~3 units past the path its centre follows, and framing to
@@ -319,10 +333,10 @@ Freesound or similar, or the toggle ships disabled. Muted by default either way.
    tuning pass over both, rather than settling the flight and then discovering
    the landing changes what the flight should feel like.
 2. **Does the system read too small?** Still unresolved, and now *changed*:
-   dressing the sections as real bodies grew `SYSTEM_EXTENT` from 18.9 to 46.4,
+   dressing the sections as real bodies grew `SYSTEM_EXTENT` from 18.9 to 48.9,
    because Jupiter, Saturn and its rings need room the six equal balls did not.
    `BASE_SIZE` was raised to 1.8 to compensate, which recovers most of it — an
-   Earth-sized planet now occupies 0.039 of the system's radius against 0.045
+   Earth-sized planet now occupies 0.037 of the system's radius against 0.045
    before — but it has never been judged on screen. Lowering `MIN_CLEARANCE`
    compacts everything and all distances re-derive.
 3. **Should the view angle change on resize?** It currently tilts with window

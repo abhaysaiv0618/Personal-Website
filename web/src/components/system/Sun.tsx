@@ -1,6 +1,6 @@
 "use client";
 
-import { SUN_RADIUS } from "@/lib/planets";
+import { SUN_CORONA_SCALE, SUN_RADIUS } from "@/lib/planets";
 
 /**
  * The star at the centre — both the visible body and the scene's only real
@@ -19,8 +19,12 @@ export default function Sun() {
       </mesh>
 
       {/* A slightly larger, transparent shell reads as corona. Cheaper and
-          more controllable than a real bloom post-processing pass. */}
-      <mesh scale={1.22}>
+          more controllable than a real bloom post-processing pass.
+
+          The scale lives in lib/planets.ts because the orbit walk spaces
+          Mercury off this glow rather than off the solid body — the two must
+          not be able to disagree. */}
+      <mesh scale={SUN_CORONA_SCALE}>
         <icosahedronGeometry args={[SUN_RADIUS, 3]} />
         <meshBasicMaterial color="#ff8c3c" transparent opacity={0.14} />
       </mesh>
