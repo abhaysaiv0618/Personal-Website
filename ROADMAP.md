@@ -21,7 +21,8 @@ runs the old CSS orbit and still lists Bank of America as the current role.
 | 4 | First-person flight, hover standoff, orbital station-keeping | merged |
 | 5 | Descent, the cut, a surface to stand on, and a launch out | merged |
 | 6 | Diegetic content on each surface + accessibility | built, on `sprint-6-content` |
-| 7 | Performance tiers, audio, promote to `/` | **next** |
+| 7 | Gaze-driven panel, settlements, weather | **in progress**, on `sprint-7-worlds` |
+| 8 | Performance tiers, audio, promote to `/` | planned |
 
 The 3D scene lives at **`/system`**. The old CSS orbit still serves **`/`** and
 stays there until sprint 7 promotes the route — that is what keeps the site
@@ -504,7 +505,42 @@ Two things seen and deliberately left alone, both sprint 5 palette questions
 rather than sprint 6 work: Mercury's ground reads near-black under a near-white
 sky, and Venus's sky is close to blown out. Both are `surfacePalette` tuning.
 
-## Sprint 7 — Polish and promote
+## Sprint 7 — Inhabited worlds
+
+**The panel opens itself.** Whichever object is nearest the centre of your view
+has its panel showing, and it swaps as you turn your head. You land already
+facing one, so content is on screen before the veil finishes lifting — no click,
+and nothing to discover. Clicking still works and *pins* an object; looking away
+past the cone closes an unpinned panel.
+
+`activePropId` split into `pinnedPropId` and `gazedPropId`, and that split is an
+accessibility decision rather than a tidiness one. The panel moves focus to its
+close button when it opens, which is right for a deliberate open and
+catastrophic for an incidental one — gaze changes several times a second, so one
+field would have meant focus being yanked continuously and a dialog being
+re-announced as fast as a sighted visitor can turn their head. With the source in
+the state, a gaze-driven sheet is `aria-hidden` with no focusable children, and a
+pinned one is a real dialog. Screen readers already have the whole thing in
+`SectionContent` and real buttons in `SurfacePropList`.
+
+Two numbers in `GazeFocus.tsx` are the entire component:
+
+- **A 22° cone.** Without a cutoff the nearest object always wins, so the panel
+  could never be empty and there would be no way to just look at the place.
+  With it, facing the rocket dismisses — a gesture nobody has to be taught.
+- **4° of hysteresis.** With the view exactly between two objects, whichever is
+  marginally nearer wins, and that margin flips on sub-pixel camera jitter — the
+  panel would swap content every frame. Same shape as a joystick dead zone, and
+  equally not optional.
+
+It compares **angles, not screen positions**. Projecting to NDC and taking the
+one nearest centre works and silently changes behaviour with window shape; the
+angle between the view direction and the object is a property of the world.
+
+The store is written **only when the winner changes** — invariant 1, and the only
+reason a per-frame gaze system is affordable at all.
+
+## Sprint 8 — Polish and promote
 
 Perf tiers (`usePerfTier`, drei `<PerformanceMonitor>`, adaptive DPR), the audio
 toggle, the loader, then promote to `/` and delete `GraphNav.tsx`.
@@ -571,5 +607,7 @@ Freesound or similar, or the toggle ships disabled. Muted by default either way.
 | Ground kept clear of rocks | `CLEARING_RADIUS`, `lib/surface.ts` (props must fit inside it) |
 | Where the props stand | `PROP_RADIUS` / `ARC_SPAN_DEG` / `STAGGER`, `lib/props.ts` |
 | How big each prop is | `PROP_DIMENSIONS`, `lib/props.ts` |
+| What counts as "looking at" | `GAZE_CONE_DEG`, `components/surface/GazeFocus.tsx` |
+| Panel flicker between objects | `GAZE_HYSTERESIS_DEG`, `components/surface/GazeFocus.tsx` |
 | Look-around speed | `SENSITIVITY`, `components/surface/SurfaceControls.tsx` |
 | Rocket framing | `DESIRED_AZIMUTH_DEG` / `VERTICAL_FILL`, `lib/surface.ts` |

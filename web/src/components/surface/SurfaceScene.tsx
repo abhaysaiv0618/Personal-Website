@@ -25,6 +25,7 @@ import {
   surfacePalette,
 } from "@/lib/surface";
 import Rocket from "@/components/system/Rocket";
+import GazeFocus from "./GazeFocus";
 import SurfaceProps from "./SurfaceProps";
 
 /** Sky and fog hold until the rocket is clear of the pad, then thin out. */
@@ -208,6 +209,13 @@ export default function SurfaceScene({ planet }: { planet: Planet }) {
             ground has no handlers at all, which is what makes a click on bare
             ground register as a miss and dismiss the panel. */}
         <SurfaceProps planet={planet} palette={palette} />
+
+        {/* Decides what you're looking at, so the panel opens without a click.
+            Renders nothing, but it lives here rather than beside the other
+            camera drivers because it is about *this world's* objects — it
+            unmounts with the surface, which is what stops it writing gaze for a
+            planet you have already left. */}
+        {phase === "surface" && <GazeFocus planet={planet} />}
 
         {/* The rocket you flew in — parked and shut down, until you leave.
             Its first appearance in the whole experience: the flight is first

@@ -12,7 +12,7 @@ import {
 import type { Planet, PropKind } from "@/lib/planets";
 import { PROP_DIMENSIONS, type PlacedProp, propLayout } from "@/lib/props";
 import type { surfacePalette } from "@/lib/surface";
-import { isBusy, useSystemStore } from "@/lib/store";
+import { activeProp, isBusy, useSystemStore } from "@/lib/store";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
 
 type Palette = ReturnType<typeof surfacePalette>;
@@ -103,12 +103,15 @@ function SurfaceProp({
   const clock = useRef(0);
 
   const phase = useSystemStore((s) => s.phase);
-  const activePropId = useSystemStore((s) => s.activePropId);
-  const openProp = useSystemStore((s) => s.openProp);
+  const pinnedPropId = useSystemStore((s) => s.pinnedPropId);
+  const gazedPropId = useSystemStore((s) => s.gazedPropId);
+  const pinProp = useSystemStore((s) => s.pinProp);
   const reduced = useReducedMotion();
   const gl = useThree((s) => s.gl);
 
-  const isOpen = activePropId === prop.id;
+  // Lit for either reason. Whether the panel was chosen or merely faced,
+  // the object it describes has to be the one visibly glowing.
+  const isOpen = activeProp({ pinnedPropId, gazedPropId }) === prop.id;
 
   // Allocated once and mutated in place — the glow lerps toward one of these
   // every frame, and building Colors per frame feeds the garbage collector.
@@ -165,7 +168,7 @@ function SurfaceProp({
     e.stopPropagation();
     // See CLICK_SLOP. A drag that ends here is a look-around, not a click.
     if (e.delta > CLICK_SLOP) return;
-    openProp(prop.id);
+    pinProp(prop.id);
   };
 
   return (

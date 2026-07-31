@@ -16,7 +16,7 @@ import Sun from "./Sun";
 
 export default function SolarSystem() {
   const clearFocus = useSystemStore((s) => s.clearFocus);
-  const closeProp = useSystemStore((s) => s.closeProp);
+  const unpinProp = useSystemStore((s) => s.unpinProp);
   const phase = useSystemStore((s) => s.phase);
   const focusedId = useSystemStore((s) => s.focusedId);
   const inSpace = isInSpace(phase);
@@ -48,7 +48,7 @@ export default function SolarSystem() {
       // around over bare ground does not count as a click.
       onPointerMissed={() => {
         clearFocus();
-        closeProp();
+        unpinProp();
       }}
     >
       {/* The whole solar system, hidden rather than unmounted while the

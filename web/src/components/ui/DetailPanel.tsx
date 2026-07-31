@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { sectionItems } from "@/lib/content";
 import { getPlanet } from "@/lib/planets";
-import { useSystemStore } from "@/lib/store";
+import { activeProp, useSystemStore } from "@/lib/store";
 
 /**
  * What an object on a surface has to say, as a sheet beside it.
@@ -22,9 +22,15 @@ import { useSystemStore } from "@/lib/store";
  * keeping the world live.
  */
 export default function DetailPanel() {
-  const activePropId = useSystemStore((s) => s.activePropId);
+  const pinnedPropId = useSystemStore((s) => s.pinnedPropId);
+  const gazedPropId = useSystemStore((s) => s.gazedPropId);
   const focusedId = useSystemStore((s) => s.focusedId);
-  const closeProp = useSystemStore((s) => s.closeProp);
+  const unpinProp = useSystemStore((s) => s.unpinProp);
+
+  const activePropId = activeProp({ pinnedPropId, gazedPropId });
+  // Pinned and gaze-driven panels look identical and behave completely
+  // differently underneath — see the focus effect and the aria treatment below.
+  const isPinned = pinnedPropId !== null;
 
   const planet = getPlanet(focusedId ?? "");
   const item = useMemo(
@@ -42,7 +48,10 @@ export default function DetailPanel() {
   // time works for both. Same pattern as GraphNav's lastFocusedRef.
   const openerRef = useRef<HTMLElement | null>(null);
 
-  const itemId = item?.id;
+  // Keyed on the *pinned* id, not the visible one. A gaze change must not run
+  // this effect at all: it would move focus, and gaze changes as fast as the
+  // visitor can turn their head.
+  const itemId = isPinned ? item?.id : undefined;
 
   useEffect(() => {
     if (!itemId) return;
@@ -51,7 +60,7 @@ export default function DetailPanel() {
     closeRef.current?.focus();
 
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") closeProp();
+      if (e.key === "Escape") unpinProp();
     };
     document.addEventListener("keydown", onKeyDown);
 
@@ -64,7 +73,7 @@ export default function DetailPanel() {
       openerRef.current?.focus?.();
       openerRef.current = null;
     };
-  }, [itemId, closeProp]);
+  }, [itemId, unpinProp]);
 
   // No body scroll lock, deliberately, unlike GraphNav's modal. /system is a
   // fixed-height overflow-hidden viewport; there is no background scroll to
@@ -82,8 +91,15 @@ export default function DetailPanel() {
     // ring, which sits at the bottom centre on every breakpoint.
     <div className="pointer-events-none absolute inset-0 z-[25] flex items-end justify-center p-3 pb-24 sm:items-center sm:justify-end sm:p-6 sm:pb-24">
       <div
-        role="dialog"
-        aria-labelledby={titleId}
+        // A dialog only when it was deliberately opened. A gaze-driven sheet is
+        // decoration to assistive tech: it changes as a sighted visitor turns
+        // their head, it was never asked for, and the same words are already
+        // available to a screen reader in SectionContent and reachable through
+        // SurfacePropList's real buttons. Announcing it would be noise, and
+        // claiming it is a dialog nobody opened would be worse.
+        role={isPinned ? "dialog" : undefined}
+        aria-labelledby={isPinned ? titleId : undefined}
+        aria-hidden={isPinned ? undefined : true}
         className="animate-sheet-enter pointer-events-auto flex max-h-[52dvh] w-full max-w-md flex-col overflow-hidden rounded-2xl border bg-black/75 shadow-2xl backdrop-blur-md sm:max-h-[72dvh]"
         style={{ borderColor: `${accent}55` }}
       >
@@ -109,16 +125,22 @@ export default function DetailPanel() {
             )}
           </div>
 
-          <button
-            ref={closeRef}
-            type="button"
-            onClick={closeProp}
-            aria-label={`Close ${item.title}`}
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-sm leading-none transition-colors duration-200 hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
-            style={{ borderColor: `${accent}66`, color: accent }}
-          >
-            ×
-          </button>
+          {/* Only when pinned. There is nothing to close otherwise — looking
+              away dismisses it — and a focusable control inside an aria-hidden
+              subtree is a genuine violation: a keyboard user can land on a
+              button that assistive tech has been told does not exist. */}
+          {isPinned && (
+            <button
+              ref={closeRef}
+              type="button"
+              onClick={unpinProp}
+              aria-label={`Close ${item.title}`}
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-sm leading-none transition-colors duration-200 hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+              style={{ borderColor: `${accent}66`, color: accent }}
+            >
+              ×
+            </button>
+          )}
         </div>
 
         <div className="custom-scrollbar min-h-0 flex-1 space-y-3 overflow-y-auto p-4 text-sm leading-relaxed text-white/80 sm:p-5">
@@ -133,6 +155,10 @@ export default function DetailPanel() {
               // client and a _blank on it leaves a dead tab behind.
               target={item.href.startsWith("http") ? "_blank" : undefined}
               rel="noreferrer"
+              // Same rule as the close button: nothing inside an aria-hidden
+              // subtree may be reachable by Tab. Still clickable with a mouse,
+              // and the keyboard route to it is SurfacePropList → pin → Tab.
+              tabIndex={isPinned ? undefined : -1}
               className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors duration-200 hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
               style={{ borderColor: `${accent}66`, color: accent }}
             >

@@ -22,8 +22,11 @@ import { useSystemStore } from "@/lib/store";
 export default function SurfacePropList() {
   const phase = useSystemStore((s) => s.phase);
   const focusedId = useSystemStore((s) => s.focusedId);
-  const activePropId = useSystemStore((s) => s.activePropId);
-  const openProp = useSystemStore((s) => s.openProp);
+  // Pinned, not gaze — this list reflects what the visitor *chose*. A row that
+  // reported itself expanded because a sighted user happened to glance at the
+  // object would be describing a state the keyboard user did not create.
+  const pinnedPropId = useSystemStore((s) => s.pinnedPropId);
+  const pinProp = useSystemStore((s) => s.pinProp);
 
   // Only while standing. During `departing` the world is still drawn but the
   // rocket is leaving, and the store would refuse the open anyway.
@@ -49,10 +52,10 @@ export default function SurfacePropList() {
           <li key={item.id}>
             <button
               type="button"
-              onClick={() => openProp(item.id)}
+              onClick={() => pinProp(item.id)}
               // Announced as expanded/collapsed so the state of the panel is
               // available without having to go and find it.
-              aria-expanded={activePropId === item.id}
+              aria-expanded={pinnedPropId === item.id}
               className="w-full rounded-lg border border-white/10 px-2.5 py-1.5 text-left text-xs text-white/80 transition-colors duration-200 hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
             >
               {item.title}
