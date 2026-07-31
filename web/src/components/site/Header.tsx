@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { GITHUB_URL, LINKEDIN_URL, RESUME_URL } from "@/lib/links";
 
-export const LINKEDIN_URL = "https://www.linkedin.com/in/abhaysaivemula/";
+// Re-exported so existing importers keep working; lib/links.ts owns the value.
+export { LINKEDIN_URL };
 
 export default function Header() {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -35,7 +37,7 @@ export default function Header() {
       ),
     },
     {
-      href: "https://drive.google.com/file/d/1_P_Vul7ayv86hIpFPcro3LGZR2Vlr54k/view?usp=sharing",
+      href: RESUME_URL,
       label: "Resume",
       icon: (
         <svg
@@ -55,7 +57,7 @@ export default function Header() {
       ),
     },
     {
-      href: "https://github.com/abhaysaiv0618",
+      href: GITHUB_URL,
       label: "GitHub",
       icon: (
         <svg
@@ -97,15 +99,13 @@ export default function Header() {
           ))}
         </div>
 
-        {/* Center Text — shortens to the name alone on narrow screens */}
+        {/* Name doubles as the home link. Kept short at every width — the
+            scene's own title card already introduces him. */}
         <Link
           href="/"
           className="min-w-0 flex-1 truncate rounded-md px-2 py-1 text-center text-base font-semibold text-neutral-100 transition-colors duration-200 hover:text-indigo-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 sm:text-xl"
         >
-          <span className="sm:hidden">Abhaysai Vemula</span>
-          <span className="hidden sm:inline">
-            Welcome to Abhaysai Vemula&apos;s Portfolio
-          </span>
+          Abhaysai Vemula
         </Link>
       </div>
     </header>
