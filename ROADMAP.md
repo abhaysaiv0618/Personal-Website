@@ -4,13 +4,14 @@ Rebuilding the portfolio navigation as a first-person solar system: six planets
 orbiting a sun, click one and your rocket flies you there, land on its surface,
 and your info is embedded in that world as objects you interact with.
 
-**Status: sprints 1–7 built. Sprint 8 is next.**
+**Status: sprints 1–7 built and merged to `main`. Sprint 8 is next.**
 
-Sprints 6 and 7 are on branches and unmerged: `sprint-7-worlds` builds on
-`sprint-6-content`, so merging means taking both.
-
-Nothing is pushed. `origin/main` is still at `9628d28`, so the live Vercel site
-runs the old CSS orbit and still lists Bank of America as the current role.
+Sprint 8 is gated on a real-phone pass. Narrow viewports have been the named top
+risk since sprint 6 and are still unverified — `resize_window` reports success
+while the captured viewport never changes, so every narrow-screen claim in this
+repo is unproven. Promoting the 3D route to `/` makes WebGL the only front door,
+which is exactly the wrong moment to discover the bottom sheet is broken. Today a
+phone visitor still gets the old wheel, and that fallback disappears at promotion.
 
 ---
 
@@ -23,13 +24,13 @@ runs the old CSS orbit and still lists Bank of America as the current role.
 | 3 | Hover labels, click-to-focus, nav ring, solved camera framing | merged |
 | 4 | First-person flight, hover standoff, orbital station-keeping | merged |
 | 5 | Descent, the cut, a surface to stand on, and a launch out | merged |
-| 6 | Diegetic content on each surface + accessibility | built, on `sprint-6-content` |
-| 7 | Gaze-driven panel, settlements, weather | built, on `sprint-7-worlds` |
-| 8 | Performance tiers, audio, promote to `/` | **next** |
+| 6 | Diegetic content on each surface + accessibility | merged |
+| 7 | Gaze-driven panel, settlements, weather | merged |
+| 8 | Performance tiers, audio, promote to `/` | **next**, gated on a phone pass |
 
 The 3D scene lives at **`/system`**. The old CSS orbit still serves **`/`** and
-stays there until sprint 7 promotes the route — that is what keeps the site
-shippable throughout.
+stays there until sprint 8 promotes the route — that is what keeps the site
+shippable throughout, and what makes deploying `/system` unlinked a safe step.
 
 ## Running it
 
