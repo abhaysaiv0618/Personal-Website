@@ -22,11 +22,15 @@ export function buildFlightPath(start: Vector3, end: Vector3): Flight {
   const distance = start.distanceTo(end);
 
   // The control point pulls the curve toward it without being touched, so
-  // lifting it above the orbital plane bows the path into a visible arc. A
-  // straight line between two planets reads as a slide across a flat image;
-  // the arc is what sells depth.
+  // lifting it above the orbital plane bows the path into an arc. A straight
+  // line between two planets reads as a slide across a flat image; the arc is
+  // what sells depth.
+  //
+  // Kept shallow because this is flown first person. The swoop that looked
+  // dramatic watching a rocket from outside becomes a stomach-drop when it's
+  // your own viewpoint being thrown up and over.
   const control = start.clone().lerp(end, 0.5);
-  control.y += Math.max(distance * 0.34, 4);
+  control.y += Math.max(distance * 0.16, 2.2);
 
   return {
     curve: new QuadraticBezierCurve3(start.clone(), control, end.clone()),

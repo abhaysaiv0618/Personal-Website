@@ -6,13 +6,16 @@ import { OrbitControls } from "@react-three/drei";
 import { Vector3 } from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { SYSTEM_EXTENT, SUN_RADIUS, getPlanet } from "@/lib/planets";
-import { fitSystemDistance, viewDirectionForAspect } from "@/lib/framing";
+import {
+  fitSystemDistance,
+  hoverPosition,
+  HOVER_DISTANCE_FACTOR,
+  viewDirectionForAspect,
+} from "@/lib/framing";
 import { getPlanetObject } from "@/lib/planetRegistry";
 import { useSystemStore } from "@/lib/store";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
 
-/** How close the camera parks relative to a planet's radius. */
-const FOCUS_DISTANCE_FACTOR = 7;
 /** Stop animating once we're this close, so the ease doesn't run forever. */
 const ARRIVAL_EPSILON = 0.05;
 /** Fit a little past the outermost ring so it isn't flush against the edge. */
@@ -123,17 +126,17 @@ export default function CameraRig() {
     const planet = focusedId ? getPlanet(focusedId) : undefined;
 
     if (planet) {
-      // Zooming in: approach along the camera's current viewing direction, so
-      // selecting a planet moves us closer without swinging us to a new side.
-      // Preserving the visitor's chosen angle is what keeps this from feeling
-      // like the camera is yanking control away.
-      const distance = planet.size * FOCUS_DISTANCE_FACTOR;
-      offset.current.copy(camera.position).sub(desiredTarget.current);
-      if (offset.current.lengthSq() < 1e-6) offset.current.copy(viewDirection);
-      offset.current.normalize().multiplyScalar(distance);
-      // Lift the eye above the orbital plane so planets don't read as a flat
-      // line up close.
-      offset.current.y += distance * 0.22;
+      // Park outside the planet, on the side we approached from. Shared with
+      // Flight so both agree on a single destination — the function is
+      // idempotent, so arriving from a flight leaves nothing to correct and
+      // the handoff is invisible.
+      hoverPosition(
+        desiredTarget.current,
+        camera.position,
+        planet.size * HOVER_DISTANCE_FACTOR,
+        desiredPosition.current
+      );
+      offset.current.copy(desiredPosition.current).sub(desiredTarget.current);
     } else {
       // Returning to the overview restores the solved framing outright — the
       // identical expression used for the first-frame snap above, so the view

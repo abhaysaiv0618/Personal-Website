@@ -2,31 +2,51 @@
 
 import { useEffect, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
-import { Group, Quaternion, Vector3 } from "three";
-import { buildFlightPath, easeInOutCubic, type Flight as Path } from "@/lib/flightPath";
+import { PerspectiveCamera, Vector3 } from "three";
+import {
+  buildFlightPath,
+  easeInOutCubic,
+  type Flight as Path,
+} from "@/lib/flightPath";
+import {
+  CAMERA_FOV,
+  HOVER_DISTANCE_FACTOR,
+  hoverPosition,
+} from "@/lib/framing";
+import { getPlanet } from "@/lib/planets";
 import { getPlanetObject } from "@/lib/planetRegistry";
 import { useSystemStore } from "@/lib/store";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
-import Rocket from "./Rocket";
 
-/** How far behind the rocket the camera trails, and how far above it. */
-const CHASE_BACK = 3.1;
-const CHASE_UP = 1.15;
-/** Lookahead along the curve used for both aiming and orientation. */
-const LOOKAHEAD = 0.015;
-/** The rocket's local forward axis, which gets rotated onto the heading. */
-const ROCKET_UP = new Vector3(0, 1, 0);
+/** Fraction of the trip spent turning to face the destination. */
+const TURN_FRACTION = 0.4;
+/** Extra degrees of field of view at peak speed — the sense of acceleration. */
+const SPEED_FOV_BOOST = 9;
 
-type ActiveFlight = Path & { elapsed: number };
+type ActiveFlight = Path & {
+  elapsed: number;
+  /** What we were looking at when we launched. */
+  lookFrom: Vector3;
+  /** The planet we're flying to. */
+  lookTo: Vector3;
+};
 
 /**
- * Owns the rocket and, while it is flying, the camera.
+ * The flight, flown from the cockpit.
  *
- * CameraRig normally drives the camera and OrbitControls normally drives
- * CameraRig, so this is the third thing that wants the same object. Rather
- * than adding another negotiation, ownership follows the phase machine that
- * already exists: during `traveling` this component drives and CameraRig
- * returns early. One owner per phase, no arbitration logic anywhere.
+ * There is no rocket model in the scene because the camera *is* the rocket —
+ * the whole experience is first person, so the system view is what you see
+ * out of the window while hovering, and a flight simply moves the window.
+ *
+ * Two consequences fall out of that, and both were bugs in the third-person
+ * version this replaces:
+ *
+ *  - The curve starts at the camera's current position, never at the sun or
+ *    at the planet we're parked beside. Starting anywhere else means
+ *    teleporting the viewer there before the flight begins.
+ *  - The flight ends exactly at the hover position CameraRig would choose,
+ *    looking exactly at the planet. Any disagreement between the two shows up
+ *    as a swing at the moment of handoff.
  */
 export default function Flight() {
   const phase = useSystemStore((s) => s.phase);
@@ -36,98 +56,115 @@ export default function Flight() {
   const reduced = useReducedMotion();
   const { camera } = useThree();
 
-  const rocketRef = useRef<Group>(null);
-  // The active flight is a three.js curve plus a clock. Neither belongs in the
-  // store: the curve is a mutable object and `elapsed` changes every frame.
   const flight = useRef<ActiveFlight | null>(null);
 
-  // Scratch vectors, allocated once — see CameraRig for why.
+  // Scratch vectors, allocated once — allocating inside useFrame feeds the
+  // garbage collector 60 times a second and shows up as frame hitches.
   const position = useRef(new Vector3());
-  const ahead = useRef(new Vector3());
-  const heading = useRef(new Vector3());
-  const chase = useRef(new Vector3());
-  const orientation = useRef(new Quaternion());
+  const lookAt = useRef(new Vector3());
+  const planetPosition = useRef(new Vector3());
+  const destination = useRef(new Vector3());
 
   useEffect(() => {
+    const restoreFov = () => {
+      const perspective = camera as PerspectiveCamera;
+      if (perspective.isPerspectiveCamera && perspective.fov !== CAMERA_FOV) {
+        perspective.fov = CAMERA_FOV;
+        perspective.updateProjectionMatrix();
+      }
+    };
+
     if (phase !== "traveling" || !travelToId) {
       flight.current = null;
+      restoreFov();
       return;
     }
 
-    const destination = getPlanetObject(travelToId);
-    if (!destination) {
-      // Nothing to fly to (the planet never mounted) — fail into the arrived
-      // state rather than leaving the phase machine stuck mid-flight.
+    const target = getPlanetObject(travelToId);
+    const planet = getPlanet(travelToId);
+    if (!target || !planet) {
+      // Nothing to fly to — fail into the arrived state rather than leaving
+      // the phase machine stuck mid-flight with no way out.
       arrive();
       return;
     }
 
-    // Visitors who asked for reduced motion get the destination, not the
-    // journey. A 3-second swooping arc is exactly what that setting exists
-    // to prevent.
+    target.getWorldPosition(planetPosition.current);
+
+    // Stop *outside* the planet, at the same spot CameraRig parks at.
+    hoverPosition(
+      planetPosition.current,
+      camera.position,
+      planet.size * HOVER_DISTANCE_FACTOR,
+      destination.current
+    );
+
+    // Reduced motion: arrive without the journey. Put the camera where the
+    // flight would have ended so there's still no jump.
     if (reduced) {
+      camera.position.copy(destination.current);
+      camera.lookAt(planetPosition.current);
       arrive();
       return;
     }
 
-    const end = new Vector3();
-    destination.getWorldPosition(end);
+    // What we're currently looking at, so the turn starts from the truth.
+    const lookFrom = new Vector3();
+    const current = focusedId ? getPlanetObject(focusedId) : null;
+    if (current) current.getWorldPosition(lookFrom);
 
-    // Launch from the planet we're parked at, or from the sun in system view.
-    const start = new Vector3();
-    const origin = focusedId ? getPlanetObject(focusedId) : null;
-    if (origin) origin.getWorldPosition(start);
+    flight.current = {
+      // Launch from wherever the viewer actually is.
+      ...buildFlightPath(camera.position.clone(), destination.current.clone()),
+      elapsed: 0,
+      lookFrom,
+      lookTo: planetPosition.current.clone(),
+    };
 
-    flight.current = { ...buildFlightPath(start, end), elapsed: 0 };
-  }, [phase, travelToId, focusedId, reduced, arrive]);
+    return restoreFov;
+  }, [phase, travelToId, focusedId, reduced, arrive, camera]);
 
   useFrame((_state, delta) => {
     const active = flight.current;
-    const rocket = rocketRef.current;
-    if (!active || !rocket) return;
+    if (!active) return;
 
     active.elapsed += delta;
     const progress = Math.min(active.elapsed / active.duration, 1);
     const t = easeInOutCubic(progress);
 
-    // getPointAt walks the curve by arc length rather than by raw parameter.
-    // Without it a bezier travels faster through its straighter stretches,
-    // so the rocket would surge and slow for no visible reason.
+    // getPointAt walks the curve by arc length rather than raw parameter.
+    // Without it a bezier travels faster through its straighter stretches and
+    // the flight would surge and slow for no visible reason.
     active.curve.getPointAt(t, position.current);
-    active.curve.getPointAt(Math.min(t + LOOKAHEAD, 1), ahead.current);
+    camera.position.copy(position.current);
 
-    heading.current.copy(ahead.current).sub(position.current);
-    // At t=1 the lookahead collapses to zero length and normalising would
-    // produce NaN, which silently corrupts the transform.
-    if (heading.current.lengthSq() > 1e-8) {
-      heading.current.normalize();
-      // Rotate the rocket's local +Y onto the heading. Doing this with Euler
-      // angles risks gimbal lock — when two axes align a degree of freedom
-      // disappears and the model snaps. Quaternions have no such case.
-      orientation.current.setFromUnitVectors(ROCKET_UP, heading.current);
-      rocket.quaternion.slerp(orientation.current, 1 - Math.pow(0.0001, delta));
+    // Swing to face the destination over the opening stretch, then hold it.
+    // Turning first and travelling second is what reads as a vehicle with a
+    // heading, rather than a camera sliding sideways while staring ahead.
+    const turn = easeInOutCubic(Math.min(progress / TURN_FRACTION, 1));
+    lookAt.current.copy(active.lookFrom).lerp(active.lookTo, turn);
+    camera.lookAt(lookAt.current);
+
+    // Widen the lens at peak speed and return it by arrival. From inside a
+    // cockpit this is most of the sensation of accelerating; without it the
+    // motion is smooth but weightless.
+    const perspective = camera as PerspectiveCamera;
+    if (perspective.isPerspectiveCamera) {
+      perspective.fov = CAMERA_FOV + Math.sin(progress * Math.PI) * SPEED_FOV_BOOST;
+      perspective.updateProjectionMatrix();
     }
-
-    rocket.position.copy(position.current);
-
-    // Chase camera: behind the rocket along its heading, and above it.
-    chase.current
-      .copy(position.current)
-      .addScaledVector(heading.current, -CHASE_BACK);
-    chase.current.y += CHASE_UP;
-
-    // Ease rather than snap, so the camera settles into the chase from
-    // wherever it happened to be instead of teleporting on frame one.
-    camera.position.lerp(chase.current, 1 - Math.pow(0.0004, delta));
-    camera.lookAt(position.current);
 
     if (progress >= 1) {
       flight.current = null;
-      // CameraRig picks up from here and eases into the focused framing.
+      if (perspective.isPerspectiveCamera) {
+        perspective.fov = CAMERA_FOV;
+        perspective.updateProjectionMatrix();
+      }
+      // We are already exactly where CameraRig wants us, so the handoff moves
+      // nothing.
       arrive();
     }
   });
 
-  if (phase !== "traveling") return null;
-  return <Rocket ref={rocketRef} />;
+  return null;
 }

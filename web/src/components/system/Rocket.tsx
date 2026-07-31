@@ -8,6 +8,10 @@ import type { Group, Mesh } from "three";
  * A low-poly rocket assembled from primitives — no model file to download,
  * and it matches the faceted look of the planets for free.
  *
+ * Not rendered during flight: the experience is first person, so the camera
+ * *is* the rocket and there is nothing to look at from outside. This exists
+ * for Sprint 5, where it sits parked on the planet surface after landing.
+ *
  * Everything is built pointing along +Y, which is the default axis for cone
  * and cylinder geometry. Flight.tsx then rotates the whole group so that +Y
  * lands on the direction of travel, so nothing here needs to know about
