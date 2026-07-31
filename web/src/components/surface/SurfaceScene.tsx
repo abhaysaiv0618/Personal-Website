@@ -1,15 +1,16 @@
 "use client";
 
 import { useMemo } from "react";
+import { useThree } from "@react-three/fiber";
 import type { Planet } from "@/lib/planets";
 import {
   EYE_HEIGHT,
   FOG_DENSITY,
   GROUND_RADIUS,
-  ROCKET_OFFSET,
   ROCKET_SCALE,
   SURFACE_ORIGIN,
   rockLayout,
+  rocketPlacement,
   surfacePalette,
 } from "@/lib/surface";
 import Rocket from "@/components/system/Rocket";
@@ -43,6 +44,16 @@ export default function SurfaceScene({ planet }: { planet: Planet }) {
   // land somewhere new — never per frame, and never per render.
   const palette = useMemo(() => surfacePalette(planet), [planet]);
   const rocks = useMemo(() => rockLayout(planet), [planet]);
+
+  // The rocket's offset depends on how wide the frame actually is, so it is
+  // re-solved on resize rather than baked at module load. Reading `size`
+  // rather than `viewport` because this is about the canvas's pixel aspect,
+  // not the world units visible at some depth.
+  const size = useThree((s) => s.size);
+  const rocketOffset = useMemo(
+    () => rocketPlacement(size.width / Math.max(size.height, 1)),
+    [size.width, size.height]
+  );
 
   return (
     <group position={SURFACE_ORIGIN}>
@@ -107,7 +118,7 @@ export default function SurfaceScene({ planet }: { planet: Planet }) {
           the whole experience: the flight is first person, so until now the
           camera *was* the rocket and there was nothing to look at. */}
       <group
-        position={ROCKET_OFFSET}
+        position={rocketOffset}
         scale={ROCKET_SCALE}
         // Turned a few degrees off the view axis so it reads as parked rather
         // than presented.

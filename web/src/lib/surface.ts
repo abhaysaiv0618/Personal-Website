@@ -169,34 +169,8 @@ const ROCKET_TOP = 0.84;
 /** Widest point: the fins, not the body. */
 const ROCKET_HALF_WIDTH = 0.28;
 
-/**
- * Where the rocket is parked — solved against the lens rather than picked.
- *
- * The first thing you see when the veil opens is whatever is dead ahead, and
- * the rocket has to be *entirely* in that frame. Eyeballing an offset does not
- * survive contact with reality: an earlier [3.4, −3.2] put it 47 degrees off
- * the view axis against a horizontal half-FOV of 40, so it was simply not on
- * screen. Worse, that failure is invisible until someone actually lands.
- *
- * So both numbers are derived from the geometry below, and they re-derive if
- * ROCKET_SCALE or EYE_HEIGHT ever change.
- *
- * **Distance** is set by the vertical fit. Standing at eye height, the bottom
- * of the rocket is the extreme — it's further below your eyeline than the nose
- * is above it — so distance is solved from that and asked to fill a fixed
- * fraction of the half-frame. Filling 68% keeps it dominant in shot with real
- * margin at top and bottom.
- *
- * **Azimuth** is set by the *worst* viewport, not the current one. Vertical
- * FOV is fixed but horizontal FOV scales with aspect ratio, so a portrait
- * phone sees a much narrower slice than a monitor — an offset that reads as
- * nicely off-centre on a desktop walks straight out of frame on a phone. The
- * budget is therefore computed against MIN_ASPECT, which leaves only a few
- * degrees. Small, but enough to break dead-centre symmetry, and guaranteed.
- */
-
-/** Narrowest viewport worth framing for — a portrait phone. */
-const MIN_ASPECT = 0.5;
+/** Where we'd like the rocket, in degrees right of centre, given the room. */
+const DESIRED_AZIMUTH_DEG = 16;
 /** Fraction of the vertical half-frame the rocket should fill. */
 const VERTICAL_FILL = 0.68;
 /** Fraction of the horizontal half-frame left usable, as safety margin. */
@@ -207,26 +181,57 @@ const rocketBaseY = ROCKET_BASE * ROCKET_SCALE;
 const rocketTopY = (ROCKET_BASE + ROCKET_TOP) * ROCKET_SCALE;
 const rocketHalfWidth = ROCKET_HALF_WIDTH * ROCKET_SCALE;
 
-// Furthest the silhouette strays from the eyeline, up or down.
-const verticalReach = Math.max(EYE_HEIGHT, rocketTopY - EYE_HEIGHT);
-const rocketDistance = verticalReach / Math.tan(halfFovRad * VERTICAL_FILL);
-
-// Horizontal half-FOV on the narrowest supported viewport, minus the angle the
-// rocket itself subtends — whatever is left over is how far off-axis it may be
-// parked while still fitting whole.
-const narrowHalfFov = Math.atan(Math.tan(halfFovRad) * MIN_ASPECT);
-const rocketAzimuth = Math.max(
-  0,
-  narrowHalfFov * HORIZONTAL_SAFETY -
-    Math.atan(rocketHalfWidth / rocketDistance)
-);
+/**
+ * Distance is aspect-independent, so it's solved once.
+ *
+ * Standing at eye height, the *bottom* of the rocket is the extreme — further
+ * below the eyeline than the nose is above it — so the fit is solved from that
+ * and asked to fill a fixed fraction of the half-frame. 68% keeps it dominant
+ * in shot with real margin top and bottom.
+ */
+const rocketDistance =
+  Math.max(EYE_HEIGHT, rocketTopY - EYE_HEIGHT) /
+  Math.tan(halfFovRad * VERTICAL_FILL);
 
 /**
- * Ahead and a touch to one side. −Z because that's the direction the camera
- * faces when SurfaceControls stands you up with yaw and pitch at zero.
+ * Where the rocket is parked, solved against the live viewport.
+ *
+ * It should sit to the *right* of centre rather than dead ahead — a vehicle
+ * squarely in the middle of frame reads as a product shot, off to one side as
+ * a place you arrived at. But how far right it can go is not a free choice.
+ * Vertical FOV is fixed while horizontal FOV scales with aspect ratio, so a
+ * monitor sees an 80-degree slice and a portrait phone barely 26. An offset
+ * that composes nicely on a desktop walks straight off the edge of a phone —
+ * and that failure is invisible until someone actually lands on one.
+ *
+ * Solving against the *narrowest supported* viewport is what the first version
+ * did, and it's too conservative: it pinned every screen to the 4 degrees a
+ * portrait phone can spare, which is why it read as dead centre everywhere.
+ * Taking the aspect as an argument instead gives each viewport the offset it
+ * can actually afford — the full 16 degrees on anything wider than about 1.3,
+ * gracefully pulled back toward centre as the window narrows, and never
+ * clipped.
+ *
+ * Returns −Z because that's the direction the camera faces when
+ * SurfaceControls stands you up with yaw and pitch at zero, and +X is
+ * screen-right from there.
  */
-export const ROCKET_OFFSET: [number, number, number] = [
-  Math.sin(rocketAzimuth) * rocketDistance,
-  rocketBaseY,
-  -Math.cos(rocketAzimuth) * rocketDistance,
-];
+export function rocketPlacement(aspect: number): [number, number, number] {
+  // Horizontal half-FOV for this viewport, less the angle the rocket itself
+  // subtends — whatever remains is how far off-axis it may sit whole.
+  const horizontalHalfFov = Math.atan(Math.tan(halfFovRad) * aspect);
+  const budget =
+    horizontalHalfFov * HORIZONTAL_SAFETY -
+    Math.atan(rocketHalfWidth / rocketDistance);
+
+  const azimuth = Math.max(
+    0,
+    Math.min((DESIRED_AZIMUTH_DEG * Math.PI) / 180, budget)
+  );
+
+  return [
+    Math.sin(azimuth) * rocketDistance,
+    rocketBaseY,
+    -Math.cos(azimuth) * rocketDistance,
+  ];
+}

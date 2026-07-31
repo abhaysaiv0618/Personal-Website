@@ -368,3 +368,4 @@ Freesound or similar, or the toggle ships disabled. Muted by default either way.
 | Surface colours | `surfacePalette()`, `lib/surface.ts` |
 | Rock field | `ROCK_COUNT` / `SCATTER_RADIUS`, `lib/surface.ts` |
 | Look-around speed | `SENSITIVITY`, `components/surface/SurfaceControls.tsx` |
+| Rocket framing | `DESIRED_AZIMUTH_DEG` / `VERTICAL_FILL`, `lib/surface.ts` |
