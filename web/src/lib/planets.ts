@@ -28,6 +28,31 @@ export type PropKind =
   | "terminal"
   | "beacon";
 
+/**
+ * What the air is doing on a world.
+ *
+ * `clear` is not "nothing" — it still gets drifting haze bands in the sky. It
+ * means no falling or blowing particles, which is what a gas giant seen from a
+ * platform above the cloud deck should look like.
+ */
+export type WeatherKind = "dust" | "rain" | "snow" | "ash" | "storm" | "clear";
+
+/**
+ * What somebody built here, seen as a silhouette on the horizon.
+ *
+ * Deliberately only ever a skyline. Structures near the landing site would
+ * compete with the content props for attention, and the content is the reason
+ * the world exists — this is set dressing that says "inhabited" and then gets
+ * out of the way.
+ */
+export type SettlementKind =
+  | "ruins"
+  | "domes"
+  | "spires"
+  | "city"
+  | "platforms"
+  | "none";
+
 /** What you actually author. Everything else is computed. */
 export type PlanetDef = {
   /** Stable key. Used for routing, React keys and content lookup. */
@@ -51,6 +76,14 @@ export type PlanetDef = {
   size?: number;
   /** How this section's content stands on its surface. Defaults to a beacon. */
   propKind?: PropKind;
+  /**
+   * Weather and skyline. Both optional, and both fall back to a value derived
+   * from the id hash — so appending a section still costs exactly one entry and
+   * still gets a world with its own character, just an arbitrary one until
+   * somebody picks.
+   */
+  weather?: WeatherKind;
+  settlement?: SettlementKind;
 };
 
 // Each section is dressed as a real planet, in true order out from the sun, so
@@ -73,6 +106,8 @@ export const PLANETS: PlanetDef[] = [
     accent: "#cfc9c0",
     radiusRatio: 0.38,
     propKind: "terminal",
+    weather: "dust",
+    settlement: "ruins",
   },
   {
     id: "experience",
@@ -82,6 +117,8 @@ export const PLANETS: PlanetDef[] = [
     accent: "#f2dc9b",
     radiusRatio: 0.95,
     propKind: "monolith",
+    weather: "storm",
+    settlement: "spires",
   },
   {
     id: "education",
@@ -91,6 +128,8 @@ export const PLANETS: PlanetDef[] = [
     accent: "#6fd3e8",
     radiusRatio: 1,
     propKind: "monument",
+    weather: "rain",
+    settlement: "city",
   },
   {
     id: "projects",
@@ -100,6 +139,8 @@ export const PLANETS: PlanetDef[] = [
     accent: "#e5793f",
     radiusRatio: 0.53,
     propKind: "crate",
+    weather: "dust",
+    settlement: "domes",
   },
   {
     id: "resume",
@@ -109,6 +150,8 @@ export const PLANETS: PlanetDef[] = [
     accent: "#e8c79a",
     radiusRatio: 11.2,
     propKind: "beacon",
+    weather: "clear",
+    settlement: "platforms",
   },
   {
     id: "contact",
@@ -119,6 +162,8 @@ export const PLANETS: PlanetDef[] = [
     radiusRatio: 9.4,
     ring: true,
     propKind: "beacon",
+    weather: "snow",
+    settlement: "domes",
   },
 ];
 
@@ -207,6 +252,40 @@ const SPEED_SCALE = 0.9;
  */
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 
+/**
+ * Fallbacks for an entry that names neither, picked by hashing the id.
+ *
+ * `none` is absent from the settlement list deliberately: an unconfigured world
+ * should still look inhabited. Choosing `none` is something you have to say.
+ */
+const DEFAULT_WEATHER: WeatherKind[] = ["dust", "rain", "snow", "ash", "clear"];
+const DEFAULT_SETTLEMENT: SettlementKind[] = [
+  "ruins",
+  "domes",
+  "spires",
+  "city",
+  "platforms",
+];
+
+/**
+ * FNV-1a, and yes `lib/surface.ts` exports one already.
+ *
+ * Importing it would make planets → surface → planets a cycle. surface's own
+ * import of `Planet` is type-only and therefore erased, so it would happen to
+ * work today and would break the first time surface needed a *value* from here.
+ * This file is the one everything else derives from; it should not depend on
+ * anything downstream of it. Twelve duplicated lines is the cheaper side of
+ * that trade.
+ */
+function hash(id: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < id.length; i++) {
+    h ^= id.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
 /** An authored PlanetDef plus everything computed from its index. */
 export type Planet = Required<Omit<PlanetDef, "size" | "ring">> & {
   size: number;
@@ -268,6 +347,15 @@ PLANETS.forEach((def, index) => {
     // is something here" without implying anything about what. An appended
     // section gets a working world before anyone has decided how it should look.
     propKind: def.propKind ?? "beacon",
+    // Weather and skyline fall back to the id rather than to a fixed default,
+    // so two unconfigured sections still get different worlds. `index` is not
+    // used for this on purpose: deriving from position would reshuffle every
+    // later planet's character the moment one is inserted in the middle, and
+    // the whole point is that a world stays the same world.
+    weather: def.weather ?? DEFAULT_WEATHER[hash(def.id) % DEFAULT_WEATHER.length],
+    settlement:
+      def.settlement ??
+      DEFAULT_SETTLEMENT[hash(`${def.id}:built`) % DEFAULT_SETTLEMENT.length],
     orbitRadius: radius,
     // Kepler, loosely: distant planets travel slower. Dividing by sqrt(r) is
     // the real relationship and it happens to look right — without it the

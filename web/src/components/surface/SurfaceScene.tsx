@@ -12,9 +12,9 @@ import {
 import type { Planet } from "@/lib/planets";
 import { ASCENT } from "@/lib/cut";
 import { useSystemStore } from "@/lib/store";
+import { worldFogDensity } from "@/lib/world";
 import {
   EYE_HEIGHT,
-  FOG_DENSITY,
   GROUND_RADIUS,
   ROCKET_SCALE,
   SPACE_COLOR,
@@ -64,6 +64,12 @@ export default function SurfaceScene({ planet }: { planet: Planet }) {
   // land somewhere new — never per frame, and never per render.
   const palette = useMemo(() => surfacePalette(planet), [planet]);
   const rocks = useMemo(() => rockLayout(planet), [planet]);
+  // Per-world now, not the module constant. A dust storm is a visibility change
+  // first and a particle effect second, so the air itself has to differ — and
+  // because the ascent below rewrites fog.density every frame, the value it
+  // writes *back* has to be this one or landing would reset every world to the
+  // same clear air.
+  const fogDensity = useMemo(() => worldFogDensity(planet), [planet]);
 
   // The rocket's offset depends on how wide the frame actually is, so it is
   // re-solved on resize rather than baked at module load. Reading `size`
@@ -99,7 +105,7 @@ export default function SurfaceScene({ planet }: { planet: Planet }) {
       elapsed.current = 0;
       if (rocket) rocket.position.y = rocketOffset[1];
       if (sky) sky.copy(palette.sky);
-      if (fog) fog.density = FOG_DENSITY;
+      if (fog) fog.density = fogDensity;
       if (hemi) hemi.intensity = 1.15;
       return;
     }
@@ -127,7 +133,7 @@ export default function SurfaceScene({ planet }: { planet: Planet }) {
     // Thinned rather than removed. At zero fog the ground disc's rim becomes
     // visible from altitude, and a world with a visible edge is worse than a
     // hazy one.
-    if (fog) fog.density = FOG_DENSITY * MathUtils.lerp(1, FOG_FLOOR, out);
+    if (fog) fog.density = fogDensity * MathUtils.lerp(1, FOG_FLOOR, out);
     // The ground has to darken with the sky. Left at full intensity it stays
     // brightly lit under a black sky, which reads as a lighting bug rather
     // than as altitude.
@@ -157,7 +163,7 @@ export default function SurfaceScene({ planet }: { planet: Planet }) {
         transparent again behind the solar system.
       */}
       <color ref={skyRef} attach="background" args={[palette.sky]} />
-      <fogExp2 ref={fogRef} attach="fog" args={[palette.sky, FOG_DENSITY]} />
+      <fogExp2 ref={fogRef} attach="fog" args={[palette.sky, fogDensity]} />
 
       <group position={SURFACE_ORIGIN}>
         {/*
