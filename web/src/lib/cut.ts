@@ -33,19 +33,19 @@
 
 /**
  * How long the dive would take if it ever ran to completion. It doesn't — the
- * swap interrupts it at SWAP_MS — which is exactly why the descent uses an
- * ease-*in* rather than the flight's ease-in-out. The viewer only ever sees
- * the accelerating half, so the motion reads as falling rather than as a
- * camera move that politely slows down.
+ * veil goes solid at VEIL_IN_MS and the swap follows at SWAP_MS, both well
+ * before this.
  *
- * The gap to SWAP_MS is therefore not slack, it is a framing decision. The
- * dive runs from the hover position (7 planet radii out) to just above the
- * surface, on a quadratic ease. Cutting at 1150/1400 = 0.82 of the way through
- * puts the camera about 3 radii from the centre, where the planet subtends
- * roughly 37 degrees against a 50 degree lens — most of the frame, which is
- * what the cut needs in order to have something to hide behind. Widen this gap
- * and you cut away while the planet is still small and distant; close it and
- * the camera is inside the planet when the veil lands.
+ * The gap is not slack, it is a framing decision. The dive runs from the hover
+ * position (7 planet radii out) to just above the surface on an ease-out,
+ * entering at the speed the flight arrived with. What matters is where the
+ * camera has got to by the time the screen is solid at 850/1400 = 0.61: 85% of
+ * the way down, about 2 radii from the centre, where the planet subtends ~54
+ * degrees against a 50 degree lens. It more than fills the frame, which is
+ * what the cut needs in order to have something to hide behind.
+ *
+ * Stretch this and you are still looking at a small distant planet when the
+ * veil lands; shorten it and the camera is pressed into the geometry.
  */
 export const DESCENT_MS = 1400;
 
@@ -65,16 +65,23 @@ export const VEIL_OUT_MS = 900;
 /**
  * The beat between arriving beside a planet and starting to fall toward it.
  *
- * Landing follows a flight automatically — one click takes you from the system
- * view to standing on a surface — but not *instantly*. Cutting straight from
- * the flight's deceleration into the dive's acceleration reads as one
- * continuous lurch with a kink in the middle. A short hold separates them into
- * two moves: you arrive, the planet hangs there for a moment, then you drop.
+ * Zero, and the reasoning behind that is worth keeping, because the first
+ * version of this held for 600ms on purpose.
  *
- * Short enough that nobody experiences it as waiting, long enough that the
- * arrival registers as its own event.
+ * The argument for a hold was that the flight decelerated into its arrival and
+ * the dive accelerated out of it, so butting them together put two flat spots
+ * back to back. That diagnosis was right and the fix was wrong: separating two
+ * dead stops with a pause does not hide them, it announces them. The whole
+ * sequence read as arrive — wait — brighten — drop.
+ *
+ * The actual fix was upstream, in the easing. The flight now coasts in still
+ * moving (`easeInCoast`) and the descent picks that speed up rather than
+ * building it again from nothing, so there is no flat spot left for a beat to
+ * paper over. Left as a knob because it is the obvious thing to reach for if
+ * the approach ever wants breathing room again — but reach for it knowing that
+ * a pause is a symptom fix.
  */
-export const ARRIVAL_HOLD_MS = 600;
+export const ARRIVAL_HOLD_MS = 0;
 
 /**
  * Reduced motion: same cut, no journey.

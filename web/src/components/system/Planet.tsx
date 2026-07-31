@@ -1,15 +1,25 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useFrame, type ThreeEvent } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
-import { DoubleSide, type Group, type Mesh } from "three";
+import {
+  Color,
+  DoubleSide,
+  MathUtils,
+  type Group,
+  type Mesh,
+  type MeshStandardMaterial,
+} from "three";
 import { PLANET_RING, type Planet as PlanetData } from "@/lib/planets";
 import { registerPlanet, unregisterPlanet } from "@/lib/planetRegistry";
-import { isInSpace, useSystemStore } from "@/lib/store";
+import { isBusy, isInSpace, useSystemStore } from "@/lib/store";
 
 /** Extra size applied while hovered or focused. */
 const HOVER_SCALE = 1.28;
+/** Self-illumination at rest, and while hovered or focused. */
+const EMISSIVE_REST = 0.18;
+const EMISSIVE_ACTIVE = 0.55;
 
 /**
  * One orbiting planet.
@@ -28,6 +38,13 @@ const HOVER_SCALE = 1.28;
 export default function Planet({ planet }: { planet: PlanetData }) {
   const pivotRef = useRef<Group>(null);
   const bodyRef = useRef<Mesh>(null);
+  const materialRef = useRef<MeshStandardMaterial>(null);
+
+  // Allocated once and mutated in place. The glow eases toward one of these
+  // every frame, so building them per frame would hand the garbage collector
+  // two objects 60 times a second per planet.
+  const restColor = useMemo(() => new Color(planet.color), [planet.color]);
+  const activeColor = useMemo(() => new Color(planet.accent), [planet.accent]);
 
   const hoveredId = useSystemStore((s) => s.hoveredId);
   const focusedId = useSystemStore((s) => s.focusedId);
@@ -95,6 +112,22 @@ export default function Planet({ planet }: { planet: PlanetData }) {
     const targetScale = isActive ? HOVER_SCALE : 1;
     const k = 1 - Math.pow(0.002, delta);
     body.scale.lerp({ x: targetScale, y: targetScale, z: targetScale }, k);
+
+    // The glow eases for exactly the same reason, and it did not used to.
+    // Driving emissive through React props switched it in a single frame, so
+    // the moment a flight arrived the planet visibly *flicked* brighter —
+    // right between the approach and the dive, which made one continuous move
+    // read as three separate events. Anything that changes as a result of a
+    // discrete state flip still has to arrive continuously on screen.
+    const material = materialRef.current;
+    if (material) {
+      material.emissiveIntensity = MathUtils.lerp(
+        material.emissiveIntensity,
+        isActive ? EMISSIVE_ACTIVE : EMISSIVE_REST,
+        k
+      );
+      material.emissive.lerp(isActive ? activeColor : restColor, k);
+    }
   });
 
   const handleOver = (e: ThreeEvent<PointerEvent>) => {
@@ -125,12 +158,17 @@ export default function Planet({ planet }: { planet: PlanetData }) {
       >
         <icosahedronGeometry args={[planet.size, 1]} />
         <meshStandardMaterial
+          ref={materialRef}
           color={planet.color}
           flatShading
           // A little self-illumination keeps the night side from going fully
           // black once the only light source is the sun at the centre.
-          emissive={isActive ? planet.accent : planet.color}
-          emissiveIntensity={isActive ? 0.55 : 0.18}
+          //
+          // These are only the *starting* values — the glow is animated on the
+          // material inside useFrame, not re-rendered through here. Setting it
+          // from `isActive` would step it in one frame.
+          emissive={planet.color}
+          emissiveIntensity={EMISSIVE_REST}
           roughness={0.85}
         />
 
@@ -160,13 +198,23 @@ export default function Planet({ planet }: { planet: PlanetData }) {
                 opacity={0.72}
                 roughness={0.9}
                 emissive={planet.accent}
-                emissiveIntensity={isActive ? 0.35 : 0.12}
+                // Constant rather than reacting to focus. The body's glow
+                // already carries that signal, and easing a second material
+                // in lockstep buys nothing except another thing that can step
+                // in one frame.
+                emissiveIntensity={0.16}
               />
             </mesh>
           </group>
         )}
 
-        {isActive && inSpace && (
+        {/* Hidden while any scripted move is running. The label is DOM, so it
+            appears and disappears in one frame no matter how the rest is
+            eased — and it was popping in at exactly the moment a flight
+            arrived, adding a third event to what should read as one move. It
+            also meant the *previous* planet's label hung on screen for the
+            whole flight, labelling somewhere you had already left. */}
+        {isActive && inSpace && !isBusy(phase) && (
           // <Html> renders real DOM positioned in 3D space, so the label gets
           // crisp text and Tailwind styling instead of a rasterised texture.
           // Fine for six occasional labels; it would be the wrong tool for

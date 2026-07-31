@@ -147,6 +147,13 @@ component needs to re-render for them, so they are mutated directly inside
 Related: `planetRegistry.ts` is a plain `Map`, not state, because the camera
 needs a planet's live world position every frame.
 
+The corollary is easy to miss and cost a visible bug: **a discrete state flip
+must still arrive on screen continuously.** `Planet.tsx` drove
+`emissiveIntensity` from `isActive` as a React prop, so the moment a flight
+arrived the planet *flicked* brighter in one frame. Hover scale had been eased
+on the object since sprint 3; the glow beside it had not. Anything that changes
+because a store value changed needs easing on the object, not a new prop value.
+
 **2. The camera has exactly one owner, arbitrated by phase.**
 Three things want it: OrbitControls, `CameraRig`'s scripted eases, and
 `Flight`. During `traveling`, `Flight` drives and `CameraRig` returns early
@@ -235,14 +242,32 @@ frame, where a single wrong frame would surface as the veil lifts.
 ## Sprint 5, as built — Landing
 
 **Selecting a planet flies you there and lands you** — one gesture, no "Land"
-button. The descent starts on its own after `ARRIVAL_HOLD_MS`, a short beat that
-exists because the flight decelerates into its arrival and the dive accelerates
-out of it; butting those together reads as one lurch with a kink in the middle
-rather than as two moves.
+button, no pause. `ARRIVAL_HOLD_MS` is 0.
 
 (This reverses the call made while planning, which was an explicit two-step
 landing. It was wrong on screen: the ceremony bought a hover state nobody wanted
 to sit in and put a click between a recruiter and the content.)
+
+**Approach and descent are one move, and that took four separate fixes.** All
+four discontinuities landed on the same frame — arrive, stall, flash, drop:
+
+| Was | Now |
+|---|---|
+| Flight ran `easeInOutCubic`, arriving at zero velocity | `easeInCoast` — accelerate, then coast in at ~1.25x average, still moving |
+| Descent built speed again from rest | Ease-*out*, entering at ~2x average and braking |
+| FOV boost returned to baseline on the phase flip | Speed-driven, and the dive continues from wherever the flight left it |
+| `emissiveIntensity` switched via a React prop | Eased on the material inside `useFrame` |
+
+The order matters: shortening the pause could never have fixed this, because
+the pause was not the problem. Two eases both flattening to zero velocity at
+the same instant was. Once the flight coasts in, the descent's job stops being
+to *build* momentum and becomes to *receive* it — which is why it now
+decelerates, reversing the ease that was correct when it started from a
+standstill. Measured across real trips, starting from rest meant up to a **7.8x
+speed drop** on the handoff frame; entering at 2x keeps every trip within about
+2x either way.
+
+A landing brakes. That it also solves the handoff is the useful part.
 
 Clicking the planet you are *already* focused on re-lands rather than no-opping,
 which is the only way back down after returning to orbit.
