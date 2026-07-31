@@ -141,7 +141,7 @@ one added. `clearFocus` is the sharp case: it's wired to the canvas's
 `onPointerMissed`, so on a surface, releasing a drag-to-look counts as
 "clicked nothing" and would have thrown the visitor back into orbit.
 
-### Seven invariants — breaking any of these caused a real bug
+### Eight invariants — breaking any of these caused a real bug
 
 **1. Discrete state in the store, continuous state on the object.**
 Which planet is hovered or focused re-renders UI, so it lives in zustand.
@@ -230,6 +230,21 @@ while the veil is opaque but already opening, so `Descent` snaps the camera back
 to its remembered vantage in a `useLayoutEffect` — synchronously on commit,
 before paint and before the next animation frame — rather than on the next
 frame, where a single wrong frame would surface as the veil lifts.
+
+**8. A click on an object is not the same event as a click on the canvas.**
+R3F applies a 2px movement threshold to `onPointerMissed` and *only* to that.
+Object `onClick` handlers are handed the distance as `event.delta` and are
+expected to gate themselves, which nothing in the API forces you to notice.
+
+That is fine everywhere in space, where nothing is draggable. It is fatal on a
+surface: `SurfaceControls` captures the pointer so you can drag to look around,
+so without a `delta` check every look-around that happens to finish with the
+cursor over an object would open that object's panel. `SurfaceProps.tsx` checks
+it (`CLICK_SLOP`); the planets in orbit deliberately do not, because there is no
+drag gesture there to confuse it with.
+
+The general shape: **a library's built-in safety check may cover one of its
+entry points and not the others.** Read which.
 
 ### Other decisions worth not relitigating
 

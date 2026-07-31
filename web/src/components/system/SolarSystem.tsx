@@ -16,6 +16,7 @@ import Sun from "./Sun";
 
 export default function SolarSystem() {
   const clearFocus = useSystemStore((s) => s.clearFocus);
+  const closeProp = useSystemStore((s) => s.closeProp);
   const phase = useSystemStore((s) => s.phase);
   const focusedId = useSystemStore((s) => s.focusedId);
   const inSpace = isInSpace(phase);
@@ -38,8 +39,17 @@ export default function SolarSystem() {
       // for no perceptible gain, and it's the cheapest perf lever available.
       dpr={[1, 2]}
       // Fires when a click hits no object at all — clicking empty space is
-      // the natural "deselect" gesture.
-      onPointerMissed={() => clearFocus()}
+      // the natural "deselect" gesture. In space that means dropping focus; on
+      // a surface it means dismissing the open panel, and the store's guards
+      // sort out which of the two applies.
+      //
+      // Safe against drag-to-look, unlike the object handlers: R3F applies its
+      // own 2px threshold before firing this one, so releasing a long look
+      // around over bare ground does not count as a click.
+      onPointerMissed={() => {
+        clearFocus();
+        closeProp();
+      }}
     >
       {/* The whole solar system, hidden rather than unmounted while the
           visitor is standing on a surface.

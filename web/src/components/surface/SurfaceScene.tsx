@@ -25,6 +25,7 @@ import {
   surfacePalette,
 } from "@/lib/surface";
 import Rocket from "@/components/system/Rocket";
+import SurfaceProps from "./SurfaceProps";
 
 /** Sky and fog hold until the rocket is clear of the pad, then thin out. */
 const ATMOSPHERE_FADE = { start: 0.15, end: 0.85 };
@@ -190,6 +191,12 @@ export default function SurfaceScene({ planet }: { planet: Planet }) {
           <meshStandardMaterial color={palette.rock} flatShading roughness={0.9} />
         </mesh>
       ))}
+
+      {/* What you came here to read, standing on the ground. The only
+          raycastable things on the surface — the rocks opted out above and the
+          ground has no handlers at all, which is what makes a click on bare
+          ground register as a miss and dismiss the panel. */}
+      <SurfaceProps planet={planet} palette={palette} />
 
       {/* The rocket you flew in — parked and shut down, until you leave.
           Its first appearance in the whole experience: the flight is first
