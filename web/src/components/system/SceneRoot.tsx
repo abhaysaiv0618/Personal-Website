@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import DetailPanel from "@/components/ui/DetailPanel";
 import FadeOverlay from "@/components/ui/FadeOverlay";
 import NavRing from "@/components/ui/NavRing";
+import SurfacePropList from "@/components/ui/SurfacePropList";
 import TitleCard from "@/components/ui/TitleCard";
 
 // WebGL needs a real browser <canvas>, so the scene can never render on the
@@ -27,6 +28,9 @@ export default function SceneRoot() {
     <div className="relative h-[calc(100dvh-4rem)] w-full overflow-hidden">
       <SolarSystem />
       <TitleCard />
+      {/* Before the nav ring in DOM order, so tabbing onto a surface reaches
+          the things standing on it before it reaches the way off it. */}
+      <SurfacePropList />
       <NavRing />
       {/* z-25: over the nav ring, under the veil. The cut has to be able to
           cover the panel like everything else, or leaving a surface with a

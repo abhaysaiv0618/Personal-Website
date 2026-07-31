@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import SectionContent from "@/components/content/SectionContent";
 import SceneRoot from "@/components/system/SceneRoot";
 
 export const metadata: Metadata = {
@@ -8,5 +9,14 @@ export const metadata: Metadata = {
 };
 
 export default function SystemPage() {
-  return <SceneRoot />;
+  // This route stays a server component so SectionContent renders on the
+  // server. SceneRoot exists purely to hold the `ssr: false` boundary the
+  // WebGL canvas needs — putting that boundary here instead would take the
+  // content down with it, which is the bug being fixed.
+  return (
+    <>
+      <SceneRoot />
+      <SectionContent />
+    </>
+  );
 }
