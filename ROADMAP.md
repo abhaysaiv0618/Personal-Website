@@ -53,6 +53,13 @@ after an edit, that is usually why.
 working planet appears — orbit, speed, spacing, guide ring, nav button,
 keyboard slot, landing veil colour and a whole derived surface to stand on.
 
+Sprint 6 adds one optional field, `propKind`, and holds the promise. It is the
+only thing hand-picked about a world's contents: **how many** objects there are
+comes from `content.ts::sectionItems(id)`, and **where they stand** comes from a
+hash of the id (`lib/props.ts`). An id `sectionItems` doesn't know returns `[]`,
+so an appended planet gets a working, empty world rather than a crash — filling
+it in stays a separate, later edit.
+
 Each section is dressed as a **real solar-system body**, listed in true order
 out from the sun: Mercury=About, Venus=Experience, Earth=Education, Mars=
 Projects, Jupiter=Resume, Saturn=Contact. The section is what the visitor is
@@ -447,5 +454,8 @@ Freesound or similar, or the toggle ships disabled. Muted by default either way.
 | Atmosphere thickness | `FOG_DENSITY`, `lib/surface.ts` |
 | Surface colours | `surfacePalette()`, `lib/surface.ts` |
 | Rock field | `ROCK_COUNT` / `SCATTER_RADIUS`, `lib/surface.ts` |
+| Ground kept clear of rocks | `CLEARING_RADIUS`, `lib/surface.ts` (props must fit inside it) |
+| Where the props stand | `PROP_RADIUS` / `ARC_SPAN_DEG` / `STAGGER`, `lib/props.ts` |
+| How big each prop is | `PROP_DIMENSIONS`, `lib/props.ts` |
 | Look-around speed | `SENSITIVITY`, `components/surface/SurfaceControls.tsx` |
 | Rocket framing | `DESIRED_AZIMUTH_DEG` / `VERTICAL_FILL`, `lib/surface.ts` |

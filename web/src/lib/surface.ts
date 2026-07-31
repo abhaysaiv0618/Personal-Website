@@ -50,8 +50,21 @@ export const GROUND_RADIUS = 300;
  */
 export const FOG_DENSITY = 0.012;
 
-/** Radius around the landing site kept clear of rocks. */
-const CLEARING_RADIUS = 7;
+/**
+ * Radius around the landing site kept clear of rocks.
+ *
+ * Raised from 7 in sprint 6, and it is doing real work now rather than just
+ * keeping boulders out of your face. The content props stand on an arc at
+ * PROP_RADIUS (lib/props.ts), and rocks are scattered without any knowledge of
+ * them — so a clearing wide enough to contain the props is what stops a
+ * monolith growing out of a boulder. One constant, rather than a
+ * collision-rejection pass that would have to run every time either layout
+ * changed.
+ *
+ * The two files must therefore agree, so props.ts imports this rather than
+ * carrying its own copy of the number.
+ */
+export const CLEARING_RADIUS = 14;
 /** How far out rocks are scattered. Beyond this the fog hides them anyway. */
 const SCATTER_RADIUS = 95;
 /** How many rocks per world. */
@@ -85,7 +98,7 @@ export function surfacePalette(planet: Planet) {
  * sequence, forever. Math.random() cannot give that, so a world built with it
  * would rearrange itself on every render.
  */
-function mulberry32(seed: number): () => number {
+export function mulberry32(seed: number): () => number {
   let a = seed >>> 0;
   return () => {
     a = (a + 0x6d2b79f5) >>> 0;
@@ -96,7 +109,7 @@ function mulberry32(seed: number): () => number {
 }
 
 /** FNV-1a: turns a planet id into the integer seed above. */
-function hashId(id: string): number {
+export function hashId(id: string): number {
   let h = 2166136261;
   for (let i = 0; i < id.length; i++) {
     h ^= id.charCodeAt(i);

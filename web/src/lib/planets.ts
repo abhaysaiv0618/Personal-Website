@@ -8,6 +8,26 @@
 // in the middle re-spaces the whole system automatically.
 // ============================================================================
 
+/**
+ * What a section's content is dressed as when you're standing on its surface.
+ *
+ * Declared here rather than in lib/props.ts on purpose. props.ts needs the
+ * derived `Planet` type from this file, so importing back the other way would
+ * be a cycle — and more to the point, this is authoring vocabulary, and this is
+ * the file you author.
+ *
+ * The kind is the *only* thing hand-picked per world. How many objects there
+ * are comes from the content (lib/content.ts::sectionItems) and where they
+ * stand comes from a hash of the id (lib/props.ts), so a new section still
+ * costs one entry.
+ */
+export type PropKind =
+  | "monolith"
+  | "crate"
+  | "monument"
+  | "terminal"
+  | "beacon";
+
 /** What you actually author. Everything else is computed. */
 export type PlanetDef = {
   /** Stable key. Used for routing, React keys and content lookup. */
@@ -29,6 +49,8 @@ export type PlanetDef = {
   ring?: boolean;
   /** Optional absolute radius override, bypassing radiusRatio entirely. */
   size?: number;
+  /** How this section's content stands on its surface. Defaults to a beacon. */
+  propKind?: PropKind;
 };
 
 // Each section is dressed as a real planet, in true order out from the sun, so
@@ -50,6 +72,7 @@ export const PLANETS: PlanetDef[] = [
     color: "#8a8681",
     accent: "#cfc9c0",
     radiusRatio: 0.38,
+    propKind: "terminal",
   },
   {
     id: "experience",
@@ -58,6 +81,7 @@ export const PLANETS: PlanetDef[] = [
     color: "#c9a227",
     accent: "#f2dc9b",
     radiusRatio: 0.95,
+    propKind: "monolith",
   },
   {
     id: "education",
@@ -66,6 +90,7 @@ export const PLANETS: PlanetDef[] = [
     color: "#2f6fb5",
     accent: "#6fd3e8",
     radiusRatio: 1,
+    propKind: "monument",
   },
   {
     id: "projects",
@@ -74,6 +99,7 @@ export const PLANETS: PlanetDef[] = [
     color: "#b4462a",
     accent: "#e5793f",
     radiusRatio: 0.53,
+    propKind: "crate",
   },
   {
     id: "resume",
@@ -82,6 +108,7 @@ export const PLANETS: PlanetDef[] = [
     color: "#bf8f5e",
     accent: "#e8c79a",
     radiusRatio: 11.2,
+    propKind: "beacon",
   },
   {
     id: "contact",
@@ -91,6 +118,7 @@ export const PLANETS: PlanetDef[] = [
     accent: "#f0e3bb",
     radiusRatio: 9.4,
     ring: true,
+    propKind: "beacon",
   },
 ];
 
@@ -236,6 +264,10 @@ PLANETS.forEach((def, index) => {
     index,
     ring,
     size,
+    // A beacon is the fallback because it is the one shape that reads as "there
+    // is something here" without implying anything about what. An appended
+    // section gets a working world before anyone has decided how it should look.
+    propKind: def.propKind ?? "beacon",
     orbitRadius: radius,
     // Kepler, loosely: distant planets travel slower. Dividing by sqrt(r) is
     // the real relationship and it happens to look right — without it the
