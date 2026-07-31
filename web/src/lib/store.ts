@@ -20,6 +20,11 @@ import { create } from "zustand";
  *   descending, departing  Descent         (the dive and the lift-off)
  *   surface                SurfaceControls (drag to look around)
  *
+ * Note what sprint 6 did *not* add: a phase for "reading a detail panel". It
+ * would have been the obvious move and it would have been wrong — the panel
+ * takes no camera, so there is nothing for the machine to arbitrate. See
+ * activePropId below.
+ *
  * Exactly one owner per phase, no blending, ever. Two components easing the
  * same camera toward different targets is stutter the viewer can feel, and it
  * is the bug this whole scheme exists to make impossible. A new kind of camera
@@ -53,6 +58,16 @@ type SystemStore = {
   focusedId: string | null;
   /** Planet the rocket is currently flying toward, if any. */
   travelToId: string | null;
+  /**
+   * The surface object whose panel is open. A SectionItem id, not a planet id.
+   *
+   * Deliberately *not* a new phase. The panel does not take the camera —
+   * SurfaceControls keeps driving it and you can still look around with the
+   * sheet open — and the phase machine exists to arbitrate camera ownership,
+   * not to track what is on screen. A phase here would be a flag on an old one
+   * wearing a costume.
+   */
+  activePropId: string | null;
 
   hover: (id: string | null) => void;
   /** Launch. No-op unless we're in a phase where flying somewhere makes sense. */
@@ -69,6 +84,10 @@ type SystemStore = {
   depart: () => void;
   /** Behind the closed veil: swap back to the system. Also FadeOverlay's call. */
   returnToOrbit: () => void;
+
+  /** Open a surface object's detail panel. Only meaningful while standing. */
+  openProp: (id: string) => void;
+  closeProp: () => void;
 };
 
 /**
@@ -97,6 +116,7 @@ export const useSystemStore = create<SystemStore>((set, get) => ({
   hoveredId: null,
   focusedId: null,
   travelToId: null,
+  activePropId: null,
 
   hover: (id) => set({ hoveredId: id }),
 
@@ -141,18 +161,35 @@ export const useSystemStore = create<SystemStore>((set, get) => ({
 
   touchDown: () => {
     if (get().phase !== "descending") return;
-    set({ phase: "surface" });
+    // A world always opens with nothing selected. Landing somewhere new while
+    // an id from the previous world was still set would try to open a panel for
+    // an object that isn't here.
+    set({ phase: "surface", activePropId: null });
   },
 
   depart: () => {
     if (get().phase !== "surface") return;
-    set({ phase: "departing" });
+    // Close the sheet as the rocket lights. Leaving it up would put a panel of
+    // text over the one scripted camera move in the whole codebase that is
+    // meant to be watched.
+    set({ phase: "departing", activePropId: null });
   },
 
   returnToOrbit: () => {
     if (get().phase !== "departing") return;
     // focusedId is untouched throughout the whole landing sequence, so we come
     // back to the planet we left rather than having to remember which it was.
-    set({ phase: "focused" });
+    set({ phase: "focused", activePropId: null });
   },
+
+  // Guarded here rather than at the call sites, for the same reason every other
+  // transition is. This one has three entry points already — a click on the
+  // object in 3D, the parallel sr-only button, and the panel's own dismiss —
+  // and a rule enforced at each is a rule that gets missed at the fourth.
+  openProp: (id) => {
+    if (get().phase !== "surface") return;
+    set({ activePropId: id });
+  },
+
+  closeProp: () => set({ activePropId: null }),
 }));
