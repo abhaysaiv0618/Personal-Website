@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import DetailPanel from "@/components/ui/DetailPanel";
 import FadeOverlay from "@/components/ui/FadeOverlay";
 import NavRing from "@/components/ui/NavRing";
 import TitleCard from "@/components/ui/TitleCard";
@@ -27,6 +28,10 @@ export default function SceneRoot() {
       <SolarSystem />
       <TitleCard />
       <NavRing />
+      {/* z-25: over the nav ring, under the veil. The cut has to be able to
+          cover the panel like everything else, or leaving a surface with a
+          sheet open would show text floating over a launching rocket. */}
+      <DetailPanel />
       {/* Last, and z-30: the veil covers the controls too. Hiding the UI is
           part of selling the cut as a single continuous move rather than a
           scene change with a menu bar sitting on top of it. */}
