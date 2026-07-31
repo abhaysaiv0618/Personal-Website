@@ -540,6 +540,35 @@ angle between the view direction and the object is a property of the world.
 The store is written **only when the winner changes** — invariant 1, and the only
 reason a per-frame gaze system is affordable at all.
 
+**Each world gets weather and a settlement**, one authored word each in
+`planets.ts`, falling back to a value hashed off the id so an appended section
+still costs one entry. The fallback hashes the **id, not the array index** —
+deriving from position would reshuffle every later planet's character the moment
+one was inserted in the middle, and a world has to stay the same world.
+
+Two things about the skyline are worth not relitigating, because both were got
+wrong first:
+
+- **Its distance is solved from the world's own fog, not picked.** Exp2 fog
+  leaves `exp(-(d·k)²)` of an object, and the per-world fog multipliers span
+  nearly 3x — so a radius that reads as a hazy city on a clear world is
+  *invisible* on a stormy one. The first version reasoned about the base
+  `FOG_DENSITY` and forgot the multiplier: Earth came out 97% fogged and Venus
+  99.998%. Now `skylineDistance` solves for a fixed 35% visibility and the
+  building sizes scale with it, so the settlement covers the same slice of
+  horizon everywhere instead of looming on the worlds with thick air.
+- **Cluster centres are evenly spaced from the direction you land facing.**
+  They were uniformly random, which is the obvious choice and is wrong here: with
+  three clusters it is entirely likely all of them land behind you, and on a
+  surface you can turn but you cannot walk. The settlement rendered perfectly,
+  sat at z = +65, and was never in shot — which looks exactly like a broken
+  instanced mesh, and cost two rounds of debugging in the renderer before the
+  position data said otherwise.
+
+The general lesson from the second one: **"it renders but I can't see it" is a
+placement question at least as often as a rendering one.** Check where the thing
+actually is before you check whether it drew.
+
 ## Sprint 8 — Polish and promote
 
 Perf tiers (`usePerfTier`, drei `<PerformanceMonitor>`, adaptive DPR), the audio

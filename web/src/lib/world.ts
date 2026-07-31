@@ -147,22 +147,46 @@ export function weatherColor(planet: Planet, sky: Color, ground: Color): Color {
 // ---------------------------------------------------------------------------
 
 /**
- * How far out the settlement stands.
+ * How much of a building's own colour has to survive the fog.
  *
- * Chosen against the fog rather than by eye, which is the whole trick. At the
- * base FOG_DENSITY of 0.012, 100 units is ~76% fogged and 130 is ~92% — so the
- * buildings resolve as pale shapes in haze rather than as models, and can be
- * boxes and cylinders while still reading as a city. It also puts them clear of
- * the rock field (SCATTER_RADIUS 95) and well inside the ground disc
- * (GROUND_RADIUS 300).
+ * This, not a distance, is what a skyline actually needs to be authored
+ * against. Exp2 fog leaves `exp(-(d·k)²)` of an object at distance d, and the
+ * per-world fog multipliers above span nearly 3x — so a fixed radius that reads
+ * as a hazy city on a clear world is *completely invisible* on a stormy one.
+ * The first version of this file picked 100–130 units by reasoning about the
+ * base FOG_DENSITY and forgot the multiplier; on Earth that came out at 97%
+ * fogged and on Venus at 99.998%, which is to say the settlement rendered
+ * perfectly and could not be seen at all.
  *
- * Worlds with thicker weather push the far edge in, or their skyline would be
- * swallowed completely.
+ * 0.35 leaves enough contrast to read as a silhouette while still sitting
+ * clearly behind the weather.
  */
-const SKYLINE_NEAR = 100;
-const SKYLINE_FAR = 130;
+const SKYLINE_VISIBILITY = 0.35;
+/**
+ * The distance the building sizes below are drawn for. Worlds that have to
+ * bring their skyline closer shrink it in proportion, so the settlement covers
+ * the same slice of horizon everywhere — otherwise a stormy world would get a
+ * skyline that looms over the content instead of sitting behind it.
+ */
+const SKYLINE_REFERENCE = 110;
+/** Never closer than this: the content props reach ~15 units. */
+const SKYLINE_MIN = 45;
+/** Never further: beyond this even clear air has swallowed it. */
+const SKYLINE_MAX = 150;
 /** Buildings per world. Low, because most of them are barely visible. */
 const SKYLINE_COUNT = 58;
+
+/**
+ * Solve `exp(-(d·k)²) = SKYLINE_VISIBILITY` for d.
+ *
+ * Deriving the distance from the world's own air is what keeps one set of
+ * building sizes working across six very different atmospheres.
+ */
+export function skylineDistance(planet: Planet): number {
+  const density = worldFogDensity(planet);
+  const solved = Math.sqrt(-Math.log(SKYLINE_VISIBILITY)) / density;
+  return Math.max(SKYLINE_MIN, Math.min(SKYLINE_MAX, solved));
+}
 
 export type Building = {
   position: [number, number, number];
@@ -218,9 +242,41 @@ export function skylineLayout(planet: Planet): Building[] {
   const random = mulberry32(hashId(`${planet.id}:skyline`));
   const buildings: Building[] = [];
 
-  // A few town centres to pull buildings toward.
-  const centreCount = 2 + Math.floor(random() * 3);
-  const centres = Array.from({ length: centreCount }, () => random() * Math.PI * 2);
+  const near = skylineDistance(planet);
+  const far = near * 1.25;
+  // Sizes are authored for SKYLINE_REFERENCE, so a world that had to pull its
+  // settlement closer shrinks it by the same factor and the skyline subtends
+  // the same angle everywhere. Without this, thick weather would not just make
+  // the city nearer — it would make it tower over the props.
+  const scale = near / SKYLINE_REFERENCE;
+
+  /**
+   * A few town centres to pull buildings toward — evenly spaced around the
+   * circle, starting from the direction the visitor lands facing.
+   *
+   * The first version picked each centre at a uniformly random angle, which is
+   * the obvious thing and is wrong here. With only two or three clusters it is
+   * entirely likely that all of them land behind you, and on a surface you can
+   * turn but you cannot walk — so the settlement rendered perfectly, sat at
+   * z = +65, and was never once in shot. It looked exactly like a broken
+   * instanced mesh, and two rounds of debugging went into the renderer before
+   * the position data said otherwise.
+   *
+   * Even spacing from the landing direction guarantees one cluster is roughly
+   * ahead of you and the rest reward turning around. Jitter keeps it from
+   * reading as a survey grid.
+   */
+  const centreCount = 3 + Math.floor(random() * 2);
+  // −Z is the direction SurfaceControls stands you facing, which is atan2's
+  // −π/2 given the (cos, sin) convention used for the positions below.
+  const forward = -Math.PI / 2;
+  const centres = Array.from(
+    { length: centreCount },
+    (_, i) =>
+      forward +
+      (i / centreCount) * Math.PI * 2 +
+      (random() - 0.5) * (Math.PI / centreCount)
+  );
 
   for (let i = 0; i < SKYLINE_COUNT; i++) {
     const centre = centres[Math.floor(random() * centres.length)];
@@ -230,9 +286,11 @@ export function skylineLayout(planet: Planet): Building[] {
     const spread = Math.sign(offset) * Math.pow(Math.abs(offset), 1 + shape.clustering * 2);
     const angle = centre + spread * (1 - shape.clustering * 0.55) * 2.2;
 
-    const radius = SKYLINE_NEAR + random() * (SKYLINE_FAR - SKYLINE_NEAR);
-    const height = shape.height[0] + random() * (shape.height[1] - shape.height[0]);
-    const girth = shape.girth[0] + random() * (shape.girth[1] - shape.girth[0]);
+    const radius = near + random() * (far - near);
+    const height =
+      (shape.height[0] + random() * (shape.height[1] - shape.height[0])) * scale;
+    const girth =
+      (shape.girth[0] + random() * (shape.girth[1] - shape.girth[0])) * scale;
 
     buildings.push({
       position: [Math.cos(angle) * radius, 0, Math.sin(angle) * radius],

@@ -26,6 +26,7 @@ import {
 } from "@/lib/surface";
 import Rocket from "@/components/system/Rocket";
 import GazeFocus from "./GazeFocus";
+import Skyline from "./Skyline";
 import SurfaceProps from "./SurfaceProps";
 
 /** Sky and fog hold until the rocket is clear of the pad, then thin out. */
@@ -214,6 +215,11 @@ export default function SurfaceScene({ planet }: { planet: Planet }) {
             raycastable things on the surface — the rocks opted out above and the
             ground has no handlers at all, which is what makes a click on bare
             ground register as a miss and dismiss the panel. */}
+        {/* Somebody lives here. Far enough out that the fog does the
+            modelling, and mounted before the props so the reading order of
+            this file matches the depth order of the scene. */}
+        <Skyline planet={planet} palette={palette} />
+
         <SurfaceProps planet={planet} palette={palette} />
 
         {/* Decides what you're looking at, so the panel opens without a click.
