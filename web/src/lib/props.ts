@@ -47,11 +47,22 @@ export const PROP_DIMENSIONS: Record<
  * viewport aspect and the props' does not, so the only robust way to keep a
  * phone from stacking a monolith on top of the rocket is to put them on
  * opposite sides of the view and never let the arcs meet.
+ *
+ * The span is 30°, and that number came off the screen rather than out of the
+ * air. A 50° vertical lens on a 2:1 window is about 86° across, so you can see
+ * roughly 43° either side of centre. At the first arrangement tried (72°) you
+ * landed on Venus looking at two of the four jobs with no way to know the
+ * other two existed; at 36° the outermost was still clipped by the window
+ * edge. Whatever is on this arc has to *fit in the frame you land facing*,
+ * because a visitor has no reason to go looking for what they cannot see.
+ *
+ * This is the constraint that actually limits how many objects a world can
+ * hold. Six or seven would need a second row rather than a wider arc.
  */
 const RIGHT_EDGE_DEG = -6;
-const ARC_SPAN_DEG = 72;
+const ARC_SPAN_DEG = 30;
 /** Where a lone object goes: near centre, still clear of the rocket. */
-const SINGLE_DEG = -18;
+const SINGLE_DEG = -14;
 
 /**
  * How far out the arc sits.
@@ -60,8 +71,13 @@ const SINGLE_DEG = -18;
  * about the props, so anything placed beyond it can and eventually will grow
  * out of a boulder. Bounded below by "far enough to see the whole thing at eye
  * height without backing up", which a 4.4-unit monument needs about 8 units for.
+ *
+ * Raised alongside the narrower arc: squeezing five objects into 30° needs more
+ * distance to keep them apart, since the linear gap between neighbours is
+ * radius x angle. At 12.5 units the 7.5° step is only about 1.6 units — it is
+ * the depth stagger below that turns that into a real 3 units in space.
  */
-const PROP_RADIUS = 10.2;
+const PROP_RADIUS = 12.5;
 /**
  * Every other object is pushed this much further out.
  *
@@ -70,12 +86,14 @@ const PROP_RADIUS = 10.2;
  * found. Staggering the depth also buys real separation between neighbours on
  * the worlds with five of them, where the angular step alone is tight.
  */
-const STAGGER = 2.1;
+const STAGGER = 2.4;
 
 export type PlacedProp = SectionItem & {
   position: [number, number, number];
   /** Turned to face the landing site, plus a little jitter. */
   rotationY: number;
+  /** Position along the arc. Only used to stagger the labels — see below. */
+  index: number;
 };
 
 /**
@@ -120,6 +138,7 @@ export function propLayout(planet: Planet): PlacedProp[] {
       // toward the origin is atan2(−sinθ, cosθ) = −θ. Jittered a few degrees so
       // they aren't all squared up to the same point.
       rotationY: -azimuth + (random() - 0.5) * 0.3,
+      index: i,
     };
   });
 }

@@ -4,7 +4,7 @@ Rebuilding the portfolio navigation as a first-person solar system: six planets
 orbiting a sun, click one and your rocket flies you there, land on its surface,
 and your info is embedded in that world as objects you interact with.
 
-**Status: sprints 1–5 complete and merged to `main`. Sprint 6 is next.**
+**Status: sprints 1–6 complete. Sprint 7 is next.**
 
 Nothing is pushed. `origin/main` is still at `9628d28`, so the live Vercel site
 runs the old CSS orbit and still lists Bank of America as the current role.
@@ -20,12 +20,12 @@ runs the old CSS orbit and still lists Bank of America as the current role.
 | 3 | Hover labels, click-to-focus, nav ring, solved camera framing | merged |
 | 4 | First-person flight, hover standoff, orbital station-keeping | merged |
 | 5 | Descent, the cut, a surface to stand on, and a launch out | merged |
-| 6 | Diegetic content on each surface + accessibility | **next** |
-| 7 | Performance tiers, audio, promote to `/` | planned |
+| 6 | Diegetic content on each surface + accessibility | built, on `sprint-6-content` |
+| 7 | Performance tiers, audio, promote to `/` | **next** |
 
 The 3D scene lives at **`/system`**. The old CSS orbit still serves **`/`** and
-stays there until sprint 6 is done — that is what keeps the site shippable
-throughout.
+stays there until sprint 7 promotes the route — that is what keeps the site
+shippable throughout.
 
 ## Running it
 
@@ -379,36 +379,130 @@ reworked against what it actually looked like; four of the commits in this
 sprint exist only because of that. The session that wrote it had no browser
 access, so everything else is type-checked and reasoned but unexecuted.
 
-Still unproven, in rough priority order:
+Sprint 6 ran the browser pass that settled most of this — see below.
 
-- **Reduced motion.** Every camera move is skipped and the cut collapses to
-  ~200ms. Never once run.
-- **Keyboard only.** Tab to the nav ring, Enter to travel, Enter to leave a
-  surface. The buttons are real, but the path has not been walked.
-- **Narrow viewports.** The rocket's framing is solved per-aspect and checked
-  arithmetically down to 0.5, never on a phone.
-- **The other four worlds.** Palettes and seeded rock fields are derived, so
-  they are *consistent* by construction — but only a couple have been looked at.
+## Sprint 6, as built — The content
 
-## Sprint 6 — The content
+**The objects on each world are fully derived.** One optional field, `propKind`,
+is the only thing hand-picked. The *count* comes from `content.ts::sectionItems`
+(four jobs make four monoliths), and the *arrangement* from a hash of the id.
+`sectionItems` returns `[]` for an id it doesn't know, so appending to `PLANETS`
+still yields a working, empty world rather than a crash.
 
-**Goal:** the info embedded in each world as objects. Experience = 3 monoliths,
-Projects = 5 crates, Education = a monument, About = a terminal, Contact and
-Resume = beacons. Click one, a panel expands.
+The planned "3 monoliths" became four, because the count is read from the data
+rather than written down.
 
-Per-planet prop layouts should be declared in `planets.ts` alongside everything
-else, so adding a section still means one entry.
+**The arc is the real constraint on how much a world can hold.** Objects sit on
+a 30° arc to the left of centre, at 12.5 units, alternating depth. Every number
+there came off the screen:
 
-**Accessibility is structural here, not a bolt-on.** A canvas is one opaque
-element to assistive tech:
-- `NavRing` is already real `<button>`s — keyboard travel never touches the canvas
-- Every diegetic prop needs a parallel DOM button in an `sr-only` list
-- The detail panel must be a real `role="dialog"`; reuse the focus/Escape/scroll-lock
-  logic already written in `GraphNav.tsx` (~line 116)
-- All section content must render server-side in a visually-hidden container
+- The arc is **left** because the rocket parks up to 16° right. Its azimuth is
+  aspect-dependent and the props' is not, so the only robust way to stop a phone
+  stacking a monolith on the rocket is to keep the two on opposite sides.
+- **30°, not 72°.** At 72° you landed on Venus looking at two of the four jobs
+  with no way to know the other two existed. At 36° the outermost was still
+  clipped. Whatever is on the arc has to fit the frame you land *facing*,
+  because nobody goes looking for what they cannot see. Six or seven objects
+  would need a second row, not a wider arc.
+- **`CLEARING_RADIUS` rose 7 → 17.** The rock field knows nothing about the
+  props, so a clearing wide enough to contain them is what stops a monolith
+  growing out of a boulder — one constant instead of a collision pass.
 
-That last point fixes a bug that exists **today**: content lives inside a
-client-only modal, so none of it is crawlable by Google.
+**Two things had to be un-derived**, and both are worth keeping:
+
+- **Prop colour is chosen for contrast, not cohesion.** Every other colour on a
+  world is derived to sit close to its neighbours, which is what makes the place
+  feel like one place. Tinting the props the same way made them dark brown boxes
+  on dark brown ground on Mars: present, and invisible. `palette.prop` lifts the
+  body colour well clear of the ground.
+- **Labels alternate height.** Neighbours are ~7.5° apart on a five-object
+  world, far less than a label is wide, and the project titles overlapped into
+  an unreadable stack. Separating them vertically is free; separating them
+  horizontally would mean a wider arc or truncating titles to nothing.
+
+Labels are **always on** rather than revealed on hover — at most five per world,
+and making someone sweep a mouse across an alien plain to discover the slabs are
+clickable is a puzzle, not a portfolio. Nothing bobs except the beacon lamp;
+idle motion on something resting on the ground reads as a physics bug.
+
+**The panel is a sheet, not a modal.** Sprint 5 spent itself on making you stand
+somewhere, and covering that place the instant you interact with it throws the
+result away. So the world stays lit, the clicked object stays glowing, and
+drag-to-look keeps working. The consequence is that it is a `role="dialog"` but
+deliberately **not** `aria-modal`: modality asserts everything outside is inert,
+and here it isn't. Claiming it would conveniently hide the fact that the same
+copy also lives in the server-rendered content — and would be a lie about the
+state of the page. That duplication is what keeping the world live costs.
+
+No new phase was added for it. The six phases arbitrate *camera ownership*, and
+the panel takes no camera.
+
+**Accessibility, as built:**
+- `SectionContent` is a **server component** rendering every section as plain
+  markup. This fixes a bug that had existed since the site was built: all the
+  copy lived in a client-only modal, so a crawler got navigation and no content.
+  Verified by `curl`ing `/system` and finding every section in the HTML.
+- `SurfacePropList` gives each object a real `<button>` — the same argument
+  `NavRing` makes for travel, one level down. It is hidden until something
+  inside takes focus, then shown: a permanently invisible focusable control is
+  its own bug, because a sighted keyboard user tabs in, sees no focus ring
+  anywhere, and has lost the page.
+- `/system` stays a server component so the above is possible. `SceneRoot`
+  exists purely to hold the `ssr: false` boundary WebGL needs.
+
+### Two bugs this sprint found in sprint 5's work
+
+**The sky and fog never worked.** `<color attach="background">` and
+`<fogExp2 attach="fog">` were nested inside `<group position={SURFACE_ORIGIN}>`.
+`attach` binds to the *direct parent*, so both were assigned to a `Group`, which
+has no `background` and no `fog` — three.js reads them off the **scene**. Two of
+the three tricks that make a surface read as a place were inert: no sky colour
+at all, the CSS starfield visible through the "atmosphere", and a hard rim where
+the ground disc ended. Nothing errors; the Group accepts the property and three
+never reads it. Fixed by hoisting both to siblings of the group.
+
+**An intermittent "flight never lands" was not a bug at all.** It reproduced
+perfectly under browser automation and never in a real browser: Chrome freezes
+`requestAnimationFrame` in a backgrounded tab, so `useFrame` never advanced and
+the phase machine sat in `traveling`. A fix was written for it and then reverted
+once the cause was understood. Worth remembering — **an animation loop tested
+through automation is being tested in a tab that may not be rendering**, and
+every symptom of that looks exactly like a stuck state machine.
+
+### What sprint 6 actually verified in a browser
+
+Run against `next dev` in Chrome. **Confirmed by watching it:**
+
+- Fly and land as one gesture; the veil, the cut, and the surface underneath.
+- Props render on Venus (4 monoliths), Mars (5 crates), Mercury (1 terminal,
+  the `count === 1` path) and Saturn (3 beacons, the lamp). All fit the frame
+  after the arc change.
+- Click a prop → panel opens with the right content, and the object stays lit.
+- **Escape closes the panel.**
+- **A drag-to-look that ends on an object does not open it** — the `CLICK_SLOP`
+  check, invariant 8.
+- Focus ring renders on the nav ring; **Enter activates travel**.
+- **Reduced motion**: camera moves skipped, cut collapsed, nothing animating.
+- **Server-rendered content**: every section present in `curl` output, no JS.
+
+**Not verified, and why:**
+
+- **Full Tab traversal order.** Synthetic Tab did not move focus from `body` in
+  this harness. Individual buttons focus and activate correctly; the *order*
+  between them was only read off the DOM.
+- **Reduced motion via the real media query.** The harness cannot emulate
+  `prefers-reduced-motion`, so `useReducedMotion` was temporarily forced to
+  `true` and reverted. That exercises everything downstream of the hook but not
+  the hook's own `matchMedia` listener.
+- **Narrow viewports.** `resize_window` reported success but the captured
+  viewport never changed, so the phone layout — bottom sheet, rocket framing —
+  is still unproven on a real narrow screen. **The top remaining risk.**
+- **Earth (`monument`).** Same single-prop code path as Mercury, not looked at.
+- **Departing with props present.** The launch was not re-watched this sprint.
+
+Two things seen and deliberately left alone, both sprint 5 palette questions
+rather than sprint 6 work: Mercury's ground reads near-black under a near-white
+sky, and Venus's sky is close to blown out. Both are `surfacePalette` tuning.
 
 ## Sprint 7 — Polish and promote
 
@@ -432,7 +526,11 @@ Freesound or similar, or the toggle ships disabled. Muted by default either way.
    `lib/cut.ts` were then picked the same way. Deliberately deferred to a single
    tuning pass over both, rather than settling the flight and then discovering
    the landing changes what the flight should feel like.
-2. **Does the system read too small?** Still unresolved, and now *changed*:
+2. **Does the system read too small?** Partly answered in sprint 6, and the
+   answer is *it depends on the window*. At 1494x812 the planets are small
+   enough that the system view looks empty at a glance; at 1553x784 the same
+   scene frames well. So this is really a question about `fitSystemDistance`'s
+   margins on short windows rather than about `BASE_SIZE`. Original note:
    dressing the sections as real bodies grew `SYSTEM_EXTENT` from 18.9 to 48.9,
    because Jupiter, Saturn and its rings need room the six equal balls did not.
    `BASE_SIZE` was raised to 1.8 to compensate, which recovers most of it — an
@@ -443,8 +541,9 @@ Freesound or similar, or the toggle ships disabled. Muted by default either way.
    shape, which is deliberate but reads as movement. Can be pinned to a constant
    angle at the cost of mobile framing.
 4. **Projects have no links.** All five entries in `content.ts` have
-   `url: null`, so the crates will show a tech stack and nothing else. Worth
-   supplying GitHub URLs before sprint 6.
+   `url: null`, so the crates show a tech stack and nothing else. Shipped that
+   way by choice in sprint 6; supplying a URL is a one-line edit per project
+   with no code change, and the panel grows a link on its own.
 5. **Push to production?** Two pre-existing bug-fix commits and the Capital One
    update are sitting unpushed on `main`.
 

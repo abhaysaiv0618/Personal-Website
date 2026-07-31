@@ -112,7 +112,7 @@ function SurfaceProp({
 
   // Allocated once and mutated in place — the glow lerps toward one of these
   // every frame, and building Colors per frame feeds the garbage collector.
-  const restColor = useMemo(() => palette.rock.clone(), [palette.rock]);
+  const restColor = useMemo(() => palette.prop.clone(), [palette.prop]);
   const activeColor = useMemo(() => new Color(accent), [accent]);
 
   useFrame((_state, delta) => {
@@ -198,11 +198,11 @@ function SurfaceProp({
         <PropGeometry kind={kind} />
         <meshStandardMaterial
           ref={materialRef}
-          color={palette.rock}
+          color={palette.prop}
           flatShading
           roughness={0.72}
           metalness={0.15}
-          emissive={palette.rock}
+          emissive={palette.prop}
           emissiveIntensity={EMISSIVE_REST}
         />
       </mesh>
@@ -229,20 +229,37 @@ function SurfaceProp({
       {!isBusy(phase) && (
         <Html
           center
-          position={[0, dims.height + (kind === "beacon" ? 0.9 : 0.55), 0]}
+          position={[
+            0,
+            dims.height +
+              (kind === "beacon" ? 0.9 : 0.55) +
+              // Alternate the height. Neighbours on the arc are only ~7.5°
+              // apart on the worlds with five objects, which at this distance
+              // is far less than a label is wide — on Mars the project titles
+              // overlapped into an unreadable stack. Lifting every other one
+              // separates them vertically instead, which costs nothing,
+              // whereas separating them horizontally would mean either a wider
+              // arc (objects off-screen) or truncating the titles to nothing.
+              (prop.index % 2 === 0 ? 1.1 : 0),
+            0,
+          ]}
           // Must never swallow the click meant for the object underneath it.
           pointerEvents="none"
           zIndexRange={[20, 0]}
         >
           <span
-            className="pointer-events-none flex max-w-[13rem] select-none flex-col items-center gap-0.5 whitespace-normal rounded-xl border px-2.5 py-1 text-center backdrop-blur-sm"
+            className="pointer-events-none flex max-w-[11rem] select-none flex-col items-center gap-0.5 whitespace-normal rounded-xl border px-2.5 py-1 text-center backdrop-blur-sm"
             style={{
               color: accent,
               borderColor: `${accent}55`,
               backgroundColor: "rgba(5,5,5,0.66)",
             }}
           >
-            <span className="text-[0.7rem] font-medium leading-tight sm:text-xs">
+            {/* Clamped to two lines. A label out here is a signpost, not the
+                content — the full title is in the panel, in the sr-only list
+                and in the server-rendered markup, so nothing is lost by
+                cutting the longest project names short in 3D. */}
+            <span className="line-clamp-2 text-[0.7rem] font-medium leading-tight sm:text-xs">
               {prop.title}
             </span>
             {prop.subtitle && (
