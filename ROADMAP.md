@@ -4,7 +4,10 @@ Rebuilding the portfolio navigation as a first-person solar system: six planets
 orbiting a sun, click one and your rocket flies you there, land on its surface,
 and your info is embedded in that world as objects you interact with.
 
-**Status: sprints 1–5 complete and merged to `main`. Sprint 6 is next.**
+**Status: sprints 1–7 built. Sprint 8 is next.**
+
+Sprints 6 and 7 are on branches and unmerged: `sprint-7-worlds` builds on
+`sprint-6-content`, so merging means taking both.
 
 Nothing is pushed. `origin/main` is still at `9628d28`, so the live Vercel site
 runs the old CSS orbit and still lists Bank of America as the current role.
@@ -20,12 +23,13 @@ runs the old CSS orbit and still lists Bank of America as the current role.
 | 3 | Hover labels, click-to-focus, nav ring, solved camera framing | merged |
 | 4 | First-person flight, hover standoff, orbital station-keeping | merged |
 | 5 | Descent, the cut, a surface to stand on, and a launch out | merged |
-| 6 | Diegetic content on each surface + accessibility | **next** |
-| 7 | Performance tiers, audio, promote to `/` | planned |
+| 6 | Diegetic content on each surface + accessibility | built, on `sprint-6-content` |
+| 7 | Gaze-driven panel, settlements, weather | built, on `sprint-7-worlds` |
+| 8 | Performance tiers, audio, promote to `/` | **next** |
 
 The 3D scene lives at **`/system`**. The old CSS orbit still serves **`/`** and
-stays there until sprint 6 is done — that is what keeps the site shippable
-throughout.
+stays there until sprint 7 promotes the route — that is what keeps the site
+shippable throughout.
 
 ## Running it
 
@@ -52,6 +56,13 @@ after an edit, that is usually why.
 `{ id, label, body, color, accent, radiusRatio }` to `PLANETS` and a fully
 working planet appears — orbit, speed, spacing, guide ring, nav button,
 keyboard slot, landing veil colour and a whole derived surface to stand on.
+
+Sprint 6 adds one optional field, `propKind`, and holds the promise. It is the
+only thing hand-picked about a world's contents: **how many** objects there are
+comes from `content.ts::sectionItems(id)`, and **where they stand** comes from a
+hash of the id (`lib/props.ts`). An id `sectionItems` doesn't know returns `[]`,
+so an appended planet gets a working, empty world rather than a crash — filling
+it in stays a separate, later edit.
 
 Each section is dressed as a **real solar-system body**, listed in true order
 out from the sun: Mercury=About, Venus=Experience, Earth=Education, Mars=
@@ -134,7 +145,7 @@ one added. `clearFocus` is the sharp case: it's wired to the canvas's
 `onPointerMissed`, so on a surface, releasing a drag-to-look counts as
 "clicked nothing" and would have thrown the visitor back into orbit.
 
-### Seven invariants — breaking any of these caused a real bug
+### Eight invariants — breaking any of these caused a real bug
 
 **1. Discrete state in the store, continuous state on the object.**
 Which planet is hovered or focused re-renders UI, so it lives in zustand.
@@ -223,6 +234,21 @@ while the veil is opaque but already opening, so `Descent` snaps the camera back
 to its remembered vantage in a `useLayoutEffect` — synchronously on commit,
 before paint and before the next animation frame — rather than on the next
 frame, where a single wrong frame would surface as the veil lifts.
+
+**8. A click on an object is not the same event as a click on the canvas.**
+R3F applies a 2px movement threshold to `onPointerMissed` and *only* to that.
+Object `onClick` handlers are handed the distance as `event.delta` and are
+expected to gate themselves, which nothing in the API forces you to notice.
+
+That is fine everywhere in space, where nothing is draggable. It is fatal on a
+surface: `SurfaceControls` captures the pointer so you can drag to look around,
+so without a `delta` check every look-around that happens to finish with the
+cursor over an object would open that object's panel. `SurfaceProps.tsx` checks
+it (`CLICK_SLOP`); the planets in orbit deliberately do not, because there is no
+drag gesture there to confuse it with.
+
+The general shape: **a library's built-in safety check may cover one of its
+entry points and not the others.** Read which.
 
 ### Other decisions worth not relitigating
 
@@ -357,38 +383,253 @@ reworked against what it actually looked like; four of the commits in this
 sprint exist only because of that. The session that wrote it had no browser
 access, so everything else is type-checked and reasoned but unexecuted.
 
-Still unproven, in rough priority order:
+Sprint 6 ran the browser pass that settled most of this — see below.
 
-- **Reduced motion.** Every camera move is skipped and the cut collapses to
-  ~200ms. Never once run.
-- **Keyboard only.** Tab to the nav ring, Enter to travel, Enter to leave a
-  surface. The buttons are real, but the path has not been walked.
-- **Narrow viewports.** The rocket's framing is solved per-aspect and checked
-  arithmetically down to 0.5, never on a phone.
-- **The other four worlds.** Palettes and seeded rock fields are derived, so
-  they are *consistent* by construction — but only a couple have been looked at.
+## Sprint 6, as built — The content
 
-## Sprint 6 — The content
+**The objects on each world are fully derived.** One optional field, `propKind`,
+is the only thing hand-picked. The *count* comes from `content.ts::sectionItems`
+(four jobs make four monoliths), and the *arrangement* from a hash of the id.
+`sectionItems` returns `[]` for an id it doesn't know, so appending to `PLANETS`
+still yields a working, empty world rather than a crash.
 
-**Goal:** the info embedded in each world as objects. Experience = 3 monoliths,
-Projects = 5 crates, Education = a monument, About = a terminal, Contact and
-Resume = beacons. Click one, a panel expands.
+The planned "3 monoliths" became four, because the count is read from the data
+rather than written down.
 
-Per-planet prop layouts should be declared in `planets.ts` alongside everything
-else, so adding a section still means one entry.
+**The arc is the real constraint on how much a world can hold.** Objects sit on
+a 30° arc to the left of centre, at 12.5 units, alternating depth. Every number
+there came off the screen:
 
-**Accessibility is structural here, not a bolt-on.** A canvas is one opaque
-element to assistive tech:
-- `NavRing` is already real `<button>`s — keyboard travel never touches the canvas
-- Every diegetic prop needs a parallel DOM button in an `sr-only` list
-- The detail panel must be a real `role="dialog"`; reuse the focus/Escape/scroll-lock
-  logic already written in `GraphNav.tsx` (~line 116)
-- All section content must render server-side in a visually-hidden container
+- The arc is **left** because the rocket parks up to 16° right. Its azimuth is
+  aspect-dependent and the props' is not, so the only robust way to stop a phone
+  stacking a monolith on the rocket is to keep the two on opposite sides.
+- **30°, not 72°.** At 72° you landed on Venus looking at two of the four jobs
+  with no way to know the other two existed. At 36° the outermost was still
+  clipped. Whatever is on the arc has to fit the frame you land *facing*,
+  because nobody goes looking for what they cannot see. Six or seven objects
+  would need a second row, not a wider arc.
+- **`CLEARING_RADIUS` rose 7 → 17.** The rock field knows nothing about the
+  props, so a clearing wide enough to contain them is what stops a monolith
+  growing out of a boulder — one constant instead of a collision pass.
 
-That last point fixes a bug that exists **today**: content lives inside a
-client-only modal, so none of it is crawlable by Google.
+**Two things had to be un-derived**, and both are worth keeping:
 
-## Sprint 7 — Polish and promote
+- **Prop colour is chosen for contrast, not cohesion.** Every other colour on a
+  world is derived to sit close to its neighbours, which is what makes the place
+  feel like one place. Tinting the props the same way made them dark brown boxes
+  on dark brown ground on Mars: present, and invisible. `palette.prop` lifts the
+  body colour well clear of the ground.
+- **Labels alternate height.** Neighbours are ~7.5° apart on a five-object
+  world, far less than a label is wide, and the project titles overlapped into
+  an unreadable stack. Separating them vertically is free; separating them
+  horizontally would mean a wider arc or truncating titles to nothing.
+
+Labels are **always on** rather than revealed on hover — at most five per world,
+and making someone sweep a mouse across an alien plain to discover the slabs are
+clickable is a puzzle, not a portfolio. Nothing bobs except the beacon lamp;
+idle motion on something resting on the ground reads as a physics bug.
+
+**The panel is a sheet, not a modal.** Sprint 5 spent itself on making you stand
+somewhere, and covering that place the instant you interact with it throws the
+result away. So the world stays lit, the clicked object stays glowing, and
+drag-to-look keeps working. The consequence is that it is a `role="dialog"` but
+deliberately **not** `aria-modal`: modality asserts everything outside is inert,
+and here it isn't. Claiming it would conveniently hide the fact that the same
+copy also lives in the server-rendered content — and would be a lie about the
+state of the page. That duplication is what keeping the world live costs.
+
+No new phase was added for it. The six phases arbitrate *camera ownership*, and
+the panel takes no camera.
+
+**Accessibility, as built:**
+- `SectionContent` is a **server component** rendering every section as plain
+  markup. This fixes a bug that had existed since the site was built: all the
+  copy lived in a client-only modal, so a crawler got navigation and no content.
+  Verified by `curl`ing `/system` and finding every section in the HTML.
+- `SurfacePropList` gives each object a real `<button>` — the same argument
+  `NavRing` makes for travel, one level down. It is hidden until something
+  inside takes focus, then shown: a permanently invisible focusable control is
+  its own bug, because a sighted keyboard user tabs in, sees no focus ring
+  anywhere, and has lost the page.
+- `/system` stays a server component so the above is possible. `SceneRoot`
+  exists purely to hold the `ssr: false` boundary WebGL needs.
+
+### Two bugs this sprint found in sprint 5's work
+
+**The sky and fog never worked.** `<color attach="background">` and
+`<fogExp2 attach="fog">` were nested inside `<group position={SURFACE_ORIGIN}>`.
+`attach` binds to the *direct parent*, so both were assigned to a `Group`, which
+has no `background` and no `fog` — three.js reads them off the **scene**. Two of
+the three tricks that make a surface read as a place were inert: no sky colour
+at all, the CSS starfield visible through the "atmosphere", and a hard rim where
+the ground disc ended. Nothing errors; the Group accepts the property and three
+never reads it. Fixed by hoisting both to siblings of the group.
+
+**An intermittent "flight never lands" was not a bug at all.** It reproduced
+perfectly under browser automation and never in a real browser: Chrome freezes
+`requestAnimationFrame` in a backgrounded tab, so `useFrame` never advanced and
+the phase machine sat in `traveling`. A fix was written for it and then reverted
+once the cause was understood. Worth remembering — **an animation loop tested
+through automation is being tested in a tab that may not be rendering**, and
+every symptom of that looks exactly like a stuck state machine.
+
+### What sprint 6 actually verified in a browser
+
+Run against `next dev` in Chrome. **Confirmed by watching it:**
+
+- Fly and land as one gesture; the veil, the cut, and the surface underneath.
+- Props render on Venus (4 monoliths), Mars (5 crates), Mercury (1 terminal,
+  the `count === 1` path) and Saturn (3 beacons, the lamp). All fit the frame
+  after the arc change.
+- Click a prop → panel opens with the right content, and the object stays lit.
+- **Escape closes the panel.**
+- **A drag-to-look that ends on an object does not open it** — the `CLICK_SLOP`
+  check, invariant 8.
+- Focus ring renders on the nav ring; **Enter activates travel**.
+- **Reduced motion**: camera moves skipped, cut collapsed, nothing animating.
+- **Server-rendered content**: every section present in `curl` output, no JS.
+
+**Not verified, and why:**
+
+- **Full Tab traversal order.** Synthetic Tab did not move focus from `body` in
+  this harness. Individual buttons focus and activate correctly; the *order*
+  between them was only read off the DOM.
+- **Reduced motion via the real media query.** The harness cannot emulate
+  `prefers-reduced-motion`, so `useReducedMotion` was temporarily forced to
+  `true` and reverted. That exercises everything downstream of the hook but not
+  the hook's own `matchMedia` listener.
+- **Narrow viewports.** `resize_window` reported success but the captured
+  viewport never changed, so the phone layout — bottom sheet, rocket framing —
+  is still unproven on a real narrow screen. **The top remaining risk.**
+- **Earth (`monument`).** Same single-prop code path as Mercury, not looked at.
+- **Departing with props present.** The launch was not re-watched this sprint.
+
+Two things seen and deliberately left alone, both sprint 5 palette questions
+rather than sprint 6 work: Mercury's ground reads near-black under a near-white
+sky, and Venus's sky is close to blown out. Both are `surfacePalette` tuning.
+
+## Sprint 7 — Inhabited worlds
+
+**The panel opens itself.** Whichever object is nearest the centre of your view
+has its panel showing, and it swaps as you turn your head. You land already
+facing one, so content is on screen before the veil finishes lifting — no click,
+and nothing to discover. Clicking still works and *pins* an object; looking away
+past the cone closes an unpinned panel.
+
+`activePropId` split into `pinnedPropId` and `gazedPropId`, and that split is an
+accessibility decision rather than a tidiness one. The panel moves focus to its
+close button when it opens, which is right for a deliberate open and
+catastrophic for an incidental one — gaze changes several times a second, so one
+field would have meant focus being yanked continuously and a dialog being
+re-announced as fast as a sighted visitor can turn their head. With the source in
+the state, a gaze-driven sheet is `aria-hidden` with no focusable children, and a
+pinned one is a real dialog. Screen readers already have the whole thing in
+`SectionContent` and real buttons in `SurfacePropList`.
+
+Two numbers in `GazeFocus.tsx` are the entire component:
+
+- **A 22° cone.** Without a cutoff the nearest object always wins, so the panel
+  could never be empty and there would be no way to just look at the place.
+  With it, facing the rocket dismisses — a gesture nobody has to be taught.
+- **4° of hysteresis.** With the view exactly between two objects, whichever is
+  marginally nearer wins, and that margin flips on sub-pixel camera jitter — the
+  panel would swap content every frame. Same shape as a joystick dead zone, and
+  equally not optional.
+
+It compares **angles, not screen positions**. Projecting to NDC and taking the
+one nearest centre works and silently changes behaviour with window shape; the
+angle between the view direction and the object is a property of the world.
+
+The store is written **only when the winner changes** — invariant 1, and the only
+reason a per-frame gaze system is affordable at all.
+
+**Each world gets weather and a settlement**, one authored word each in
+`planets.ts`, falling back to a value hashed off the id so an appended section
+still costs one entry. The fallback hashes the **id, not the array index** —
+deriving from position would reshuffle every later planet's character the moment
+one was inserted in the middle, and a world has to stay the same world.
+
+Two things about the skyline are worth not relitigating, because both were got
+wrong first:
+
+- **Its distance is solved from the world's own fog, not picked.** Exp2 fog
+  leaves `exp(-(d·k)²)` of an object, and the per-world fog multipliers span
+  nearly 3x — so a radius that reads as a hazy city on a clear world is
+  *invisible* on a stormy one. The first version reasoned about the base
+  `FOG_DENSITY` and forgot the multiplier: Earth came out 97% fogged and Venus
+  99.998%. Now `skylineDistance` solves for a fixed 35% visibility and the
+  building sizes scale with it, so the settlement covers the same slice of
+  horizon everywhere instead of looming on the worlds with thick air.
+- **Cluster centres are evenly spaced from the direction you land facing.**
+  They were uniformly random, which is the obvious choice and is wrong here: with
+  three clusters it is entirely likely all of them land behind you, and on a
+  surface you can turn but you cannot walk. The settlement rendered perfectly,
+  sat at z = +65, and was never in shot — which looks exactly like a broken
+  instanced mesh, and cost two rounds of debugging in the renderer before the
+  position data said otherwise.
+
+The general lesson from the second one: **"it renders but I can't see it" is a
+placement question at least as often as a rendering one.** Check where the thing
+actually is before you check whether it drew.
+
+**Weather is three layers** (`components/surface/Weather.tsx`): a wrapping
+particle field, slow bands drifting across the sky, and — on storm worlds only —
+lightning.
+
+The particle volume is a **fixed box around the landing site**, not one that
+follows the viewer, and that is only correct because `SurfaceControls` pins the
+camera's position and lets you change only its orientation. You look around and
+never move, so the weather never has to chase you. In a scene where you could
+walk this would have to wrap in the camera's own frame instead.
+
+Two rules on lightning, both load-bearing:
+
+- **It publishes an intensity through `flashRef`; it does not light the scene.**
+  Sky colour and hemisphere intensity have exactly one writer, `SurfaceScene`,
+  for the same reason the camera has one owner per phase. R3F runs `useFrame` in
+  subscription order and **children subscribe before parents**, so a flash
+  written inside `Weather` would be overwritten by the parent later in the same
+  frame and would never appear. Same silent failure as two components easing one
+  camera.
+- **Off entirely under reduced motion**, not dimmed or slowed. A full-screen
+  brightness strobe is the single most likely thing in this codebase to do
+  somebody actual harm.
+
+One frame-rate bug worth remembering: the strike originally set strength to 1 and
+decayed it *in the same frame*, so on a slow frame one delta could exceed the
+whole decay and the flash would be consumed before it ever drew. `else if` gives
+it one guaranteed frame at full strength and makes it frame-rate independent.
+
+### What sprint 7 verified in a browser
+
+**Confirmed by watching it:**
+
+- A panel is **already open on landing**, before the veil finishes lifting, with
+  no interaction at all.
+- Turning the view swaps the panel to the object you turn toward, with no
+  flicker when the view sits between two.
+- Facing the rocket **closes** it — the cone acting as a dismiss gesture.
+- Clicking pins (the close button appears); Escape unpins and gaze immediately
+  takes the panel back, which is the intended fallback rather than a bug.
+- Three worlds looked at and clearly distinct: Venus (storm + spires), Earth
+  (rain + city), Mars (dust + domes).
+- **Lightning**, caught mid-decay with the interval temporarily shortened.
+- **Reduced motion with that short interval still in place**: no flash on any
+  frame, and consecutive frames pixel-identical because the particles freeze too.
+- Departing with weather running: the veil closes black, nothing fights it.
+
+**Not verified:**
+
+- **Narrow viewports**, still. `resize_window` reports success and the captured
+  viewport never changes. Now the top risk by some distance — particle counts
+  and skyline density both scale badly on a small screen, and the bottom sheet
+  has never been seen. Worth ten minutes with a real phone.
+- Mercury (`ruins`) and Jupiter (`platforms`) skylines, and Saturn's snow.
+- Frame cost. Nothing here has been profiled; sprint 8's perf tiers should gate
+  `WEATHER[...].count` and `SKYLINE_COUNT` first, since they are the two numbers
+  this sprint added that scale with the device rather than the content.
+
+## Sprint 8 — Polish and promote
 
 Perf tiers (`usePerfTier`, drei `<PerformanceMonitor>`, adaptive DPR), the audio
 toggle, the loader, then promote to `/` and delete `GraphNav.tsx`.
@@ -410,7 +651,11 @@ Freesound or similar, or the toggle ships disabled. Muted by default either way.
    `lib/cut.ts` were then picked the same way. Deliberately deferred to a single
    tuning pass over both, rather than settling the flight and then discovering
    the landing changes what the flight should feel like.
-2. **Does the system read too small?** Still unresolved, and now *changed*:
+2. **Does the system read too small?** Partly answered in sprint 6, and the
+   answer is *it depends on the window*. At 1494x812 the planets are small
+   enough that the system view looks empty at a glance; at 1553x784 the same
+   scene frames well. So this is really a question about `fitSystemDistance`'s
+   margins on short windows rather than about `BASE_SIZE`. Original note:
    dressing the sections as real bodies grew `SYSTEM_EXTENT` from 18.9 to 48.9,
    because Jupiter, Saturn and its rings need room the six equal balls did not.
    `BASE_SIZE` was raised to 1.8 to compensate, which recovers most of it — an
@@ -421,8 +666,9 @@ Freesound or similar, or the toggle ships disabled. Muted by default either way.
    shape, which is deliberate but reads as movement. Can be pinned to a constant
    angle at the cost of mobile framing.
 4. **Projects have no links.** All five entries in `content.ts` have
-   `url: null`, so the crates will show a tech stack and nothing else. Worth
-   supplying GitHub URLs before sprint 6.
+   `url: null`, so the crates show a tech stack and nothing else. Shipped that
+   way by choice in sprint 6; supplying a URL is a one-line edit per project
+   with no code change, and the panel grows a link on its own.
 5. **Push to production?** Two pre-existing bug-fix commits and the Capital One
    update are sitting unpushed on `main`.
 
@@ -447,5 +693,16 @@ Freesound or similar, or the toggle ships disabled. Muted by default either way.
 | Atmosphere thickness | `FOG_DENSITY`, `lib/surface.ts` |
 | Surface colours | `surfacePalette()`, `lib/surface.ts` |
 | Rock field | `ROCK_COUNT` / `SCATTER_RADIUS`, `lib/surface.ts` |
+| Per-world weather + settlement | the entry in `lib/planets.ts` |
+| What each weather kind does | `WEATHER`, `lib/world.ts` |
+| Skyline size / haze target | `SKYLINE_VISIBILITY` / `SKYLINE_REFERENCE`, `lib/world.ts` |
+| Settlement silhouettes | `SETTLEMENT`, `lib/world.ts` |
+| Weather volume | `VOLUME`, `components/surface/Weather.tsx` |
+| Lightning frequency | `STRIKE_INTERVAL`, `components/surface/Weather.tsx` |
+| Ground kept clear of rocks | `CLEARING_RADIUS`, `lib/surface.ts` (props must fit inside it) |
+| Where the props stand | `PROP_RADIUS` / `ARC_SPAN_DEG` / `STAGGER`, `lib/props.ts` |
+| How big each prop is | `PROP_DIMENSIONS`, `lib/props.ts` |
+| What counts as "looking at" | `GAZE_CONE_DEG`, `components/surface/GazeFocus.tsx` |
+| Panel flicker between objects | `GAZE_HYSTERESIS_DEG`, `components/surface/GazeFocus.tsx` |
 | Look-around speed | `SENSITIVITY`, `components/surface/SurfaceControls.tsx` |
 | Rocket framing | `DESIRED_AZIMUTH_DEG` / `VERTICAL_FILL`, `lib/surface.ts` |

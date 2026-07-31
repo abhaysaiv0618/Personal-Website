@@ -50,8 +50,21 @@ export const GROUND_RADIUS = 300;
  */
 export const FOG_DENSITY = 0.012;
 
-/** Radius around the landing site kept clear of rocks. */
-const CLEARING_RADIUS = 7;
+/**
+ * Radius around the landing site kept clear of rocks.
+ *
+ * Raised from 7 in sprint 6, and it is doing real work now rather than just
+ * keeping boulders out of your face. The content props stand on an arc at
+ * PROP_RADIUS (lib/props.ts), and rocks are scattered without any knowledge of
+ * them — so a clearing wide enough to contain the props is what stops a
+ * monolith growing out of a boulder. One constant, rather than a
+ * collision-rejection pass that would have to run every time either layout
+ * changed.
+ *
+ * The two files must therefore agree, so props.ts imports this rather than
+ * carrying its own copy of the number.
+ */
+export const CLEARING_RADIUS = 17;
 /** How far out rocks are scattered. Beyond this the fog hides them anyway. */
 const SCATTER_RADIUS = 95;
 /** How many rocks per world. */
@@ -71,11 +84,19 @@ export function surfacePalette(planet: Planet) {
   const sky = new Color(planet.accent).offsetHSL(0, -0.22, 0.16);
   const ground = new Color(planet.color).offsetHSL(0, -0.08, -0.06);
   const rock = ground.clone().offsetHSL(0.02, 0.04, -0.05);
+  // The content props, and the one colour here that is chosen for *contrast*
+  // rather than for cohesion. Everything else on a world is derived to sit
+  // close together, which is what makes the place feel like one place — but
+  // the props are the thing you are meant to find, and on Mars a prop tinted
+  // like the rock was a dark brown box on dark brown ground under a pale sky:
+  // present, and invisible. Lifting the body colour well above the ground's
+  // keeps the planet's identity while guaranteeing the objects read.
+  const prop = new Color(planet.color).offsetHSL(0, 0, 0.18);
   // The low sun is tinted toward the accent so shading picks up the planet's
   // identity on the lit faces, not just in the sky.
   const sunlight = new Color(planet.accent).offsetHSL(0, -0.3, 0.3);
 
-  return { sky, ground, rock, sunlight };
+  return { sky, ground, rock, prop, sunlight };
 }
 
 /**
@@ -85,7 +106,7 @@ export function surfacePalette(planet: Planet) {
  * sequence, forever. Math.random() cannot give that, so a world built with it
  * would rearrange itself on every render.
  */
-function mulberry32(seed: number): () => number {
+export function mulberry32(seed: number): () => number {
   let a = seed >>> 0;
   return () => {
     a = (a + 0x6d2b79f5) >>> 0;
@@ -96,7 +117,7 @@ function mulberry32(seed: number): () => number {
 }
 
 /** FNV-1a: turns a planet id into the integer seed above. */
-function hashId(id: string): number {
+export function hashId(id: string): number {
   let h = 2166136261;
   for (let i = 0; i < id.length; i++) {
     h ^= id.charCodeAt(i);

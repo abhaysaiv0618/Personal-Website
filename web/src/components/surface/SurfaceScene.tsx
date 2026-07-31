@@ -12,9 +12,9 @@ import {
 import type { Planet } from "@/lib/planets";
 import { ASCENT } from "@/lib/cut";
 import { useSystemStore } from "@/lib/store";
+import { worldFogDensity } from "@/lib/world";
 import {
   EYE_HEIGHT,
-  FOG_DENSITY,
   GROUND_RADIUS,
   ROCKET_SCALE,
   SPACE_COLOR,
@@ -25,6 +25,10 @@ import {
   surfacePalette,
 } from "@/lib/surface";
 import Rocket from "@/components/system/Rocket";
+import GazeFocus from "./GazeFocus";
+import Skyline from "./Skyline";
+import Weather from "./Weather";
+import SurfaceProps from "./SurfaceProps";
 
 /** Sky and fog hold until the rocket is clear of the pad, then thin out. */
 const ATMOSPHERE_FADE = { start: 0.15, end: 0.85 };
@@ -62,6 +66,12 @@ export default function SurfaceScene({ planet }: { planet: Planet }) {
   // land somewhere new — never per frame, and never per render.
   const palette = useMemo(() => surfacePalette(planet), [planet]);
   const rocks = useMemo(() => rockLayout(planet), [planet]);
+  // Per-world now, not the module constant. A dust storm is a visibility change
+  // first and a particle effect second, so the air itself has to differ — and
+  // because the ascent below rewrites fog.density every frame, the value it
+  // writes *back* has to be this one or landing would reset every world to the
+  // same clear air.
+  const fogDensity = useMemo(() => worldFogDensity(planet), [planet]);
 
   // The rocket's offset depends on how wide the frame actually is, so it is
   // re-solved on resize rather than baked at module load. Reading `size`
@@ -82,6 +92,18 @@ export default function SurfaceScene({ planet }: { planet: Planet }) {
   const hemiRef = useRef<HemisphereLight>(null);
   const elapsed = useRef(0);
   const spaceColor = useMemo(() => new Color(SPACE_COLOR), []);
+  /**
+   * Lightning's current intensity, 0–1, written by Weather and applied here.
+   *
+   * The sky colour and the hemisphere light have exactly one writer — this
+   * component — for the same reason the camera has exactly one owner per phase.
+   * R3F runs useFrame in subscription order and children subscribe first, so a
+   * flash written inside Weather would be overwritten by the loop below later
+   * in the same frame and would never appear on screen. Passing a number up and
+   * applying it in one place makes that impossible rather than merely unlikely.
+   */
+  const flashRef = useRef(0);
+  const white = useMemo(() => new Color("#ffffff"), []);
 
   useFrame((_state, delta) => {
     const rocket = rocketRef.current;
@@ -96,9 +118,11 @@ export default function SurfaceScene({ planet }: { planet: Planet }) {
       // otherwise open on the blackened sky the previous departure left behind.
       elapsed.current = 0;
       if (rocket) rocket.position.y = rocketOffset[1];
-      if (sky) sky.copy(palette.sky);
-      if (fog) fog.density = FOG_DENSITY;
-      if (hemi) hemi.intensity = 1.15;
+      // The one place lightning is allowed to reach the scene.
+      const flash = flashRef.current;
+      if (sky) sky.copy(palette.sky).lerp(white, flash * 0.5);
+      if (fog) fog.density = fogDensity;
+      if (hemi) hemi.intensity = 1.15 + flash * 1.5;
       return;
     }
 
@@ -125,7 +149,7 @@ export default function SurfaceScene({ planet }: { planet: Planet }) {
     // Thinned rather than removed. At zero fog the ground disc's rim becomes
     // visible from altitude, and a world with a visible edge is worse than a
     // hazy one.
-    if (fog) fog.density = FOG_DENSITY * MathUtils.lerp(1, FOG_FLOOR, out);
+    if (fog) fog.density = fogDensity * MathUtils.lerp(1, FOG_FLOOR, out);
     // The ground has to darken with the sky. Left at full intensity it stays
     // brightly lit under a black sky, which reads as a lighting bug rather
     // than as altitude.
@@ -133,92 +157,127 @@ export default function SurfaceScene({ planet }: { planet: Planet }) {
   });
 
   return (
-    <group position={SURFACE_ORIGIN}>
+    <>
       {/*
-        Sky and fog are attached to the *scene*, which is shared with the solar
-        system — so mounting them here would be a leak if they had to be undone
-        by hand. They don't: R3F's `attach` records the previous value and puts
-        it back on unmount. Leaving the surface therefore restores
-        `scene.background` to null on its own, which is what lets the canvas go
-        transparent again and the CSS starfield show through behind the system.
-        Placing them inside this component rather than in a phase conditional
-        higher up is what buys that.
+        Sky and fog, and they must be siblings of the group rather than
+        children of it. `attach` binds to the *direct parent*, and the parent
+        is the scene only because these sit at the top level of this component
+        — SurfaceScene is rendered straight into <Canvas>. Nested one level
+        deeper, inside the group, they attached to a Group instead. A Group has
+        no `background` and no `fog`, so both assignments silently did nothing:
+        no sky colour at all, no fog, the CSS starfield showing straight through
+        the "atmosphere", and a hard rim where the ground disc ended. Two of the
+        three tricks that make this read as a place were inert.
+
+        Nothing errors when you get this wrong. The Group accepts the property
+        without complaint and three.js simply never reads it.
+
+        Mounting them in this component rather than in a phase conditional
+        higher up is still what makes cleanup free: R3F's `attach` records the
+        previous value and restores it on unmount, so leaving a surface puts
+        `scene.background` back to null on its own and the canvas goes
+        transparent again behind the solar system.
       */}
       <color ref={skyRef} attach="background" args={[palette.sky]} />
-      <fogExp2 ref={fogRef} attach="fog" args={[palette.sky, FOG_DENSITY]} />
+      <fogExp2 ref={fogRef} attach="fog" args={[palette.sky, fogDensity]} />
 
-      {/*
-        Sky above, ground below. One light doing the job of a whole environment
-        map: it's the difference between "a plane with objects on it" and "a
-        place with air in it".
-      */}
-      <hemisphereLight ref={hemiRef} args={[palette.sky, palette.ground, 1.15]} />
+      <group position={SURFACE_ORIGIN}>
+        {/*
+          Sky above, ground below. One light doing the job of a whole environment
+          map: it's the difference between "a plane with objects on it" and "a
+          place with air in it".
+        */}
+        <hemisphereLight ref={hemiRef} args={[palette.sky, palette.ground, 1.15]} />
 
-      {/*
-        A low sun for direction. Without a directional source every face of a
-        flat-shaded rock takes the same hemisphere tint and the low-poly
-        silhouettes disappear. No shadow map — shadows are a sprint 7 decision
-        with a real frame-time cost, and fog is already selling the depth.
-      */}
-      <directionalLight
-        position={[40, 22, -30]}
-        intensity={1.3}
-        color={palette.sunlight}
-      />
+        {/*
+          A low sun for direction. Without a directional source every face of a
+          flat-shaded rock takes the same hemisphere tint and the low-poly
+          silhouettes disappear. No shadow map — shadows are a sprint 7 decision
+          with a real frame-time cost, and fog is already selling the depth.
+        */}
+        <directionalLight
+          position={[40, 22, -30]}
+          intensity={1.3}
+          color={palette.sunlight}
+        />
 
-      {/* The ground. A disc rather than a plane so there are no corners to
-          catch the eye at the horizon, and it never needs to be square with
-          whichever way you happen to be facing. */}
-      <mesh rotation-x={-Math.PI / 2} receiveShadow={false}>
-        <circleGeometry args={[GROUND_RADIUS, 96]} />
-        <meshStandardMaterial color={palette.ground} roughness={0.95} />
-      </mesh>
-
-      {/* Terrain. Same faceted icosahedra as the planets, which is what keeps
-          one visual language across two scenes built from nothing in common. */}
-      {rocks.map((rock, i) => (
-        <mesh
-          key={i}
-          position={rock.position}
-          rotation={rock.rotation}
-          // Rocks are scenery, and hit-testing walks every raycastable object
-          // on every pointer move. Sprint 6's props opt *in*; nothing else
-          // should be paying for them.
-          raycast={() => null}
-        >
-          <icosahedronGeometry args={[rock.radius, rock.detail]} />
-          <meshStandardMaterial color={palette.rock} flatShading roughness={0.9} />
+        {/* The ground. A disc rather than a plane so there are no corners to
+            catch the eye at the horizon, and it never needs to be square with
+            whichever way you happen to be facing. */}
+        <mesh rotation-x={-Math.PI / 2} receiveShadow={false}>
+          <circleGeometry args={[GROUND_RADIUS, 96]} />
+          <meshStandardMaterial color={palette.ground} roughness={0.95} />
         </mesh>
-      ))}
 
-      {/* The rocket you flew in — parked and shut down, until you leave.
-          Its first appearance in the whole experience: the flight is first
-          person, so until now the camera *was* the rocket and there was
-          nothing to look at.
+        {/* Terrain. Same faceted icosahedra as the planets, which is what keeps
+            one visual language across two scenes built from nothing in common. */}
+        {rocks.map((rock, i) => (
+          <mesh
+            key={i}
+            position={rock.position}
+            rotation={rock.rotation}
+            // Rocks are scenery, and hit-testing walks every raycastable object
+            // on every pointer move. Sprint 6's props opt *in*; nothing else
+            // should be paying for them.
+            raycast={() => null}
+          >
+            <icosahedronGeometry args={[rock.radius, rock.detail]} />
+            <meshStandardMaterial color={palette.rock} flatShading roughness={0.9} />
+          </mesh>
+        ))}
 
-          On departure it lights and climbs, and the camera goes up after it
-          (Descent). That is a deliberate break from first person: the one
-          moment worth seeing your ship from outside is the moment it leaves. */}
-      <group
-        ref={rocketRef}
-        position={rocketOffset}
-        scale={ROCKET_SCALE}
-        // Turned a few degrees off the view axis so it reads as parked rather
-        // than presented.
-        rotation-y={0.6}
-      >
-        <Rocket engine={launching} color="#e2e8f0" />
+        {/* What you came here to read, standing on the ground. The only
+            raycastable things on the surface — the rocks opted out above and the
+            ground has no handlers at all, which is what makes a click on bare
+            ground register as a miss and dismiss the panel. */}
+        {/* Somebody lives here. Far enough out that the fog does the
+            modelling, and mounted before the props so the reading order of
+            this file matches the depth order of the scene. */}
+        <Skyline planet={planet} palette={palette} />
+
+        {/* The air. Particles, drifting sky bands, and — on storm worlds only —
+            lightning, which reports its intensity through flashRef rather than
+            lighting the scene itself. */}
+        <Weather planet={planet} palette={palette} flashRef={flashRef} />
+
+        <SurfaceProps planet={planet} palette={palette} />
+
+        {/* Decides what you're looking at, so the panel opens without a click.
+            Renders nothing, but it lives here rather than beside the other
+            camera drivers because it is about *this world's* objects — it
+            unmounts with the surface, which is what stops it writing gaze for a
+            planet you have already left. */}
+        {phase === "surface" && <GazeFocus planet={planet} />}
+
+        {/* The rocket you flew in — parked and shut down, until you leave.
+            Its first appearance in the whole experience: the flight is first
+            person, so until now the camera *was* the rocket and there was
+            nothing to look at.
+
+            On departure it lights and climbs, and the camera goes up after it
+            (Descent). That is a deliberate break from first person: the one
+            moment worth seeing your ship from outside is the moment it leaves. */}
+        <group
+          ref={rocketRef}
+          position={rocketOffset}
+          scale={ROCKET_SCALE}
+          // Turned a few degrees off the view axis so it reads as parked rather
+          // than presented.
+          rotation-y={0.6}
+        >
+          <Rocket engine={launching} color="#e2e8f0" />
+        </group>
+
+        {/* A soft glow at the landing site, standing in for the light the engine
+            would be throwing if it were still lit. Keeps the immediate ground
+            around your feet from falling into flat hemisphere tint. */}
+        <pointLight
+          position={[0, EYE_HEIGHT, 0]}
+          intensity={6}
+          distance={26}
+          color={palette.sky}
+        />
       </group>
-
-      {/* A soft glow at the landing site, standing in for the light the engine
-          would be throwing if it were still lit. Keeps the immediate ground
-          around your feet from falling into flat hemisphere tint. */}
-      <pointLight
-        position={[0, EYE_HEIGHT, 0]}
-        intensity={6}
-        distance={26}
-        color={palette.sky}
-      />
-    </group>
+    </>
   );
 }
