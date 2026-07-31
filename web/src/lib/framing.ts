@@ -25,6 +25,50 @@ export function viewDirectionForAspect(aspect: number): Vector3 {
 /** Points sampled around the outermost ring when testing a candidate distance. */
 const SAMPLES = 64;
 
+/** How far outside a planet we hover, as a multiple of its radius. */
+export const HOVER_DISTANCE_FACTOR = 7;
+/** Sine of the elevation angle held while hovering — slightly above level. */
+const HOVER_ELEVATION = 0.3;
+
+/**
+ * Where the camera comes to rest when parked beside a planet: outside it, at
+ * a fixed elevation, on whichever side we approached from.
+ *
+ * Deliberately *idempotent* — feed its own output back in as `approachFrom`
+ * and it returns the same point. That property is what removes the swing on
+ * arrival. The flight ends here, then CameraRig recomputes its own target the
+ * instant the phase flips to `focused`; if the two disagreed even slightly the
+ * camera would visibly correct itself, which is exactly the lurch a naive
+ * "normalise the offset and add a Y lift" version produces (adding the lift
+ * after normalising changes the vector's length, so reapplying it moves the
+ * point every time).
+ */
+export function hoverPosition(
+  planetPosition: Vector3,
+  approachFrom: Vector3,
+  distance: number,
+  out: Vector3
+): Vector3 {
+  let dx = approachFrom.x - planetPosition.x;
+  let dz = approachFrom.z - planetPosition.z;
+  const length = Math.hypot(dx, dz);
+  if (length < 1e-6) {
+    // Directly above or below the planet: no horizontal direction to keep.
+    dx = 0;
+    dz = 1;
+  } else {
+    dx /= length;
+    dz /= length;
+  }
+
+  const horizontal = Math.sqrt(1 - HOVER_ELEVATION * HOVER_ELEVATION);
+  return out.set(
+    planetPosition.x + dx * horizontal * distance,
+    planetPosition.y + HOVER_ELEVATION * distance,
+    planetPosition.z + dz * horizontal * distance
+  );
+}
+
 /**
  * Fractions of the viewport to keep clear, in normalised device coordinates
  * (the NDC box runs -1..1, so 0.24 reserves 12% of the height).

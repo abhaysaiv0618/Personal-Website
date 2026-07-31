@@ -31,8 +31,9 @@ export default function Planet({ planet }: { planet: PlanetData }) {
 
   const hoveredId = useSystemStore((s) => s.hoveredId);
   const focusedId = useSystemStore((s) => s.focusedId);
+  const phase = useSystemStore((s) => s.phase);
   const hover = useSystemStore((s) => s.hover);
-  const focus = useSystemStore((s) => s.focus);
+  const travelTo = useSystemStore((s) => s.travelTo);
 
   const isHovered = hoveredId === planet.id;
   const isFocused = focusedId === planet.id;
@@ -58,7 +59,17 @@ export default function Planet({ planet }: { planet: PlanetData }) {
 
   useFrame((_state, delta) => {
     // Orbit: rotate the pivot and the body rides along.
-    if (pivotRef.current) {
+    //
+    // Frozen during a flight. The rocket's arc is computed once at launch
+    // against the destination's position at that instant, so if the planet
+    // kept orbiting the curve would be aimed where it *used* to be and the
+    // rocket would arrive at empty space. Freezing makes the destination
+    // stable for the duration, and the brief time-stop reads as cinematic.
+    //
+    // Axial spin below is deliberately left running: it doesn't move the
+    // planet, so it costs nothing to keep, and a fully frozen system looks
+    // broken rather than paused.
+    if (pivotRef.current && phase !== "traveling") {
       pivotRef.current.rotation.y += delta * planet.orbitSpeed;
     }
 
@@ -98,7 +109,7 @@ export default function Planet({ planet }: { planet: PlanetData }) {
         onPointerOut={handleOut}
         onClick={(e) => {
           e.stopPropagation();
-          focus(planet.id);
+          travelTo(planet.id);
         }}
       >
         <icosahedronGeometry args={[planet.size, 1]} />

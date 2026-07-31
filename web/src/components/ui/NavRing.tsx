@@ -19,9 +19,12 @@ import { useSystemStore } from "@/lib/store";
 export default function NavRing() {
   const focusedId = useSystemStore((s) => s.focusedId);
   const hoveredId = useSystemStore((s) => s.hoveredId);
-  const focus = useSystemStore((s) => s.focus);
+  const travelToId = useSystemStore((s) => s.travelToId);
+  const phase = useSystemStore((s) => s.phase);
+  const travelTo = useSystemStore((s) => s.travelTo);
   const hover = useSystemStore((s) => s.hover);
   const clearFocus = useSystemStore((s) => s.clearFocus);
+  const traveling = phase === "traveling";
 
   return (
     <nav
@@ -32,12 +35,20 @@ export default function NavRing() {
     >
       <ul className="pointer-events-auto flex max-w-full flex-wrap items-center justify-center gap-2 rounded-full border border-white/10 bg-black/50 px-2 py-2 backdrop-blur-md">
         {PLANET_SYSTEM.map((planet) => {
-          const isActive = focusedId === planet.id;
+          // Highlight the destination the moment a flight starts, so the
+          // control reflects where you're going rather than where you left.
+          const isActive =
+            travelToId === planet.id || (!travelToId && focusedId === planet.id);
           return (
             <li key={planet.id}>
               <button
                 type="button"
-                onClick={() => focus(planet.id)}
+                onClick={() => travelTo(planet.id)}
+                // Locked mid-flight: the store ignores a second launch anyway,
+                // but a button that visibly does nothing is worse than one
+                // that shows it's unavailable.
+                disabled={traveling}
+                aria-busy={travelToId === planet.id}
                 // Hovering a button highlights the matching planet in 3D, so
                 // the two navigation surfaces stay visibly linked.
                 onMouseEnter={() => hover(planet.id)}
@@ -45,7 +56,7 @@ export default function NavRing() {
                 onFocus={() => hover(planet.id)}
                 onBlur={() => hover(null)}
                 aria-current={isActive ? "true" : undefined}
-                className="rounded-full border px-3 py-1.5 text-xs font-medium tracking-wide transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 sm:px-4 sm:text-sm"
+                className="rounded-full border px-3 py-1.5 text-xs font-medium tracking-wide transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 disabled:cursor-default disabled:opacity-55 sm:px-4 sm:text-sm"
                 style={{
                   color: isActive || hoveredId === planet.id ? planet.accent : "rgba(255,255,255,0.72)",
                   borderColor:
@@ -59,12 +70,13 @@ export default function NavRing() {
           );
         })}
 
-        {focusedId && (
+        {(focusedId || traveling) && (
           <li>
             <button
               type="button"
               onClick={clearFocus}
-              className="rounded-full border border-white/12 px-3 py-1.5 text-xs font-medium tracking-wide text-white/60 transition-colors duration-200 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 sm:px-4 sm:text-sm"
+              disabled={traveling}
+              className="rounded-full border border-white/12 px-3 py-1.5 text-xs font-medium tracking-wide text-white/60 transition-colors duration-200 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 disabled:cursor-default disabled:opacity-55 sm:px-4 sm:text-sm"
             >
               Back to system
             </button>

@@ -6,13 +6,18 @@ import { OrbitControls } from "@react-three/drei";
 import { Vector3 } from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { SYSTEM_EXTENT, SUN_RADIUS, getPlanet } from "@/lib/planets";
-import { fitSystemDistance, viewDirectionForAspect } from "@/lib/framing";
+import {
+  fitSystemDistance,
+  hoverPosition,
+  HOVER_DISTANCE_FACTOR,
+  viewDirectionForAspect,
+} from "@/lib/framing";
 import { getPlanetObject } from "@/lib/planetRegistry";
 import { useSystemStore } from "@/lib/store";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
 
-/** How close the camera parks relative to a planet's radius. */
-const FOCUS_DISTANCE_FACTOR = 7;
+/** Planets orbit about world Y, so keeping station means turning about it too. */
+const ORBIT_AXIS = new Vector3(0, 1, 0);
 /** Stop animating once we're this close, so the ease doesn't run forever. */
 const ARRIVAL_EPSILON = 0.05;
 /** Fit a little past the outermost ring so it isn't flush against the edge. */
@@ -38,7 +43,9 @@ export default function CameraRig() {
   const { camera } = useThree();
   const size = useThree((s) => s.size);
   const focusedId = useSystemStore((s) => s.focusedId);
+  const phase = useSystemStore((s) => s.phase);
   const reduced = useReducedMotion();
+  const traveling = phase === "traveling";
 
   // Solved from the live viewport, so a resize reframes instead of clipping.
   // Angle and distance are solved together: the angle adapts to window shape,
@@ -64,6 +71,13 @@ export default function CameraRig() {
   const desiredPosition = useRef(new Vector3());
   const offset = useRef(new Vector3());
 
+  // Station-keeping: where the focused planet was last frame, and our
+  // displacement from it. Re-anchored to the planet's real position every
+  // frame rather than integrated, so nothing accumulates drift.
+  const lastTargetPosition = useRef(new Vector3());
+  const stationOffset = useRef(new Vector3());
+  const hasStation = useRef(false);
+
   const animating = useRef(false);
   const initialised = useRef(false);
 
@@ -84,6 +98,17 @@ export default function CameraRig() {
     const controls = controlsRef.current;
     if (!controls) return;
 
+    // Flight.tsx owns the camera during a flight. Yielding entirely — rather
+    // than blending — is what keeps the chase shot clean; two components
+    // easing the same object toward different targets is the stutter this
+    // whole ownership scheme exists to avoid.
+    if (traveling) {
+      // Our record of the planet's position goes stale while Flight drives,
+      // so drop it. The first frame after arrival re-establishes it.
+      hasStation.current = false;
+      return;
+    }
+
     // Where should we be looking? A focused planet's live world position, or
     // the sun when nothing is selected.
     if (focusedId) {
@@ -101,31 +126,59 @@ export default function CameraRig() {
       controls.update();
       initialised.current = true;
       animating.current = false;
+      lastTargetPosition.current.copy(desiredTarget.current);
+      hasStation.current = true;
       return;
     }
 
     if (!animating.current) {
-      // Idle: the visitor is in charge. Keep following a focused planet as it
-      // orbits, but leave camera position entirely to OrbitControls.
+      const parked = focusedId ? getPlanet(focusedId) : undefined;
+
+      if (parked && hasStation.current) {
+        // Fly in formation rather than watching from a fixed point in space.
+        //
+        // Only aiming the camera at a moving planet leaves you anchored to a
+        // spot the planet steadily leaves behind — it shrinks into the
+        // distance while you stare after it. Keeping station means matching
+        // its orbital motion so it holds still relative to you.
+        //
+        // Two parts, because the planet is doing two things: it translates,
+        // so we re-anchor to its new position; and its whole orbit sweeps
+        // about the sun, so our displacement rotates about the same world
+        // axis by the same angle. Translating alone would keep the distance
+        // but let us slew around the planet as the orbit carried it past.
+        //
+        // Camera and target move by the same rigid transform, which leaves
+        // the spherical relationship OrbitControls tracks untouched — so
+        // dragging to look around still works normally on top of this.
+        stationOffset.current
+          .copy(camera.position)
+          .sub(lastTargetPosition.current)
+          .applyAxisAngle(ORBIT_AXIS, delta * parked.orbitSpeed);
+        camera.position.copy(desiredTarget.current).add(stationOffset.current);
+      }
+
       controls.target.copy(desiredTarget.current);
       controls.update();
+      lastTargetPosition.current.copy(desiredTarget.current);
+      hasStation.current = true;
       return;
     }
 
     const planet = focusedId ? getPlanet(focusedId) : undefined;
 
     if (planet) {
-      // Zooming in: approach along the camera's current viewing direction, so
-      // selecting a planet moves us closer without swinging us to a new side.
-      // Preserving the visitor's chosen angle is what keeps this from feeling
-      // like the camera is yanking control away.
-      const distance = planet.size * FOCUS_DISTANCE_FACTOR;
-      offset.current.copy(camera.position).sub(desiredTarget.current);
-      if (offset.current.lengthSq() < 1e-6) offset.current.copy(viewDirection);
-      offset.current.normalize().multiplyScalar(distance);
-      // Lift the eye above the orbital plane so planets don't read as a flat
-      // line up close.
-      offset.current.y += distance * 0.22;
+      // Park outside the planet, on the side we approached from. Shared with
+      // Flight so both agree on a single destination — the function is
+      // idempotent, so arriving from a flight leaves nothing to correct and
+      // the handoff is invisible.
+      hoverPosition(
+        desiredTarget.current,
+        camera.position,
+        planet.size * HOVER_DISTANCE_FACTOR,
+        desiredPosition.current
+      );
+      offset.current.copy(desiredPosition.current).sub(desiredTarget.current);
     } else {
       // Returning to the overview restores the solved framing outright — the
       // identical expression used for the first-frame snap above, so the view
@@ -159,6 +212,11 @@ export default function CameraRig() {
 
     controls.update();
 
+    // Keep the station record current through the scripted move too, so the
+    // first idle frame afterwards holds formation instead of skipping one.
+    lastTargetPosition.current.copy(desiredTarget.current);
+    hasStation.current = true;
+
     // Arrived: return the camera to the visitor.
     if (camera.position.distanceTo(desiredPosition.current) < ARRIVAL_EPSILON) {
       animating.current = false;
@@ -171,8 +229,8 @@ export default function CameraRig() {
       // makeDefault lets other drei helpers discover these controls rather
       // than each grabbing the camera independently.
       makeDefault
-      // Disabled mid-flight so dragging can't fight the scripted move.
-      enabled={!animating.current}
+      // Disabled mid-move so dragging can't fight the scripted camera.
+      enabled={!animating.current && !traveling}
       enablePan={false}
       enableDamping={!reduced}
       dampingFactor={0.06}
