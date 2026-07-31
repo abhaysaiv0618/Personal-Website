@@ -16,17 +16,19 @@ const HOLD_MS = 3600;
  */
 export default function TitleCard() {
   const [visible, setVisible] = useState(true);
-  const focusedId = useSystemStore((s) => s.focusedId);
+  const phase = useSystemStore((s) => s.phase);
 
   useEffect(() => {
     const timer = setTimeout(() => setVisible(false), HOLD_MS);
     return () => clearTimeout(timer);
   }, []);
 
-  // Selecting anything means they've started exploring — get out of the way.
+  // Leaving the system view means they've started exploring — get out of the
+  // way at launch rather than on arrival, so the title isn't sitting over the
+  // rocket for the whole flight.
   useEffect(() => {
-    if (focusedId) setVisible(false);
-  }, [focusedId]);
+    if (phase !== "system") setVisible(false);
+  }, [phase]);
 
   return (
     <div

@@ -38,7 +38,9 @@ export default function CameraRig() {
   const { camera } = useThree();
   const size = useThree((s) => s.size);
   const focusedId = useSystemStore((s) => s.focusedId);
+  const phase = useSystemStore((s) => s.phase);
   const reduced = useReducedMotion();
+  const traveling = phase === "traveling";
 
   // Solved from the live viewport, so a resize reframes instead of clipping.
   // Angle and distance are solved together: the angle adapts to window shape,
@@ -83,6 +85,12 @@ export default function CameraRig() {
   useFrame((_state, delta) => {
     const controls = controlsRef.current;
     if (!controls) return;
+
+    // Flight.tsx owns the camera during a flight. Yielding entirely — rather
+    // than blending — is what keeps the chase shot clean; two components
+    // easing the same object toward different targets is the stutter this
+    // whole ownership scheme exists to avoid.
+    if (traveling) return;
 
     // Where should we be looking? A focused planet's live world position, or
     // the sun when nothing is selected.
@@ -171,8 +179,8 @@ export default function CameraRig() {
       // makeDefault lets other drei helpers discover these controls rather
       // than each grabbing the camera independently.
       makeDefault
-      // Disabled mid-flight so dragging can't fight the scripted move.
-      enabled={!animating.current}
+      // Disabled mid-move so dragging can't fight the scripted camera.
+      enabled={!animating.current && !traveling}
       enablePan={false}
       enableDamping={!reduced}
       dampingFactor={0.06}

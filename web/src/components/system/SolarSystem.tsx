@@ -5,6 +5,7 @@ import { PLANET_SYSTEM, SYSTEM_EXTENT } from "@/lib/planets";
 import { CAMERA_FOV } from "@/lib/framing";
 import { useSystemStore } from "@/lib/store";
 import CameraRig from "./CameraRig";
+import Flight from "./Flight";
 import Orbits from "./Orbits";
 import Planet from "./Planet";
 import Starfield from "./Starfield";
@@ -48,6 +49,7 @@ export default function SolarSystem() {
         <Planet key={planet.id} planet={planet} />
       ))}
 
+      <Flight />
       <CameraRig />
     </Canvas>
   );

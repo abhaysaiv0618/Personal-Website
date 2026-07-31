@@ -10,17 +10,22 @@ import { create } from "zustand";
  * Sprint 3 implements `system` and `focused`. `traveling` and `surface` are
  * declared now so the shape stays stable when Sprints 4 and 5 fill them in.
  */
-export type Phase = "system" | "focused" | "traveling" | "surface";
+export type Phase = "system" | "traveling" | "focused" | "surface";
 
 type SystemStore = {
   phase: Phase;
   /** Planet under the pointer. Purely cosmetic — drives labels and scale. */
   hoveredId: string | null;
-  /** Planet the camera is committed to. Null means "viewing the whole system". */
+  /** Planet we have arrived at. Null means "viewing the whole system". */
   focusedId: string | null;
+  /** Planet the rocket is currently flying toward, if any. */
+  travelToId: string | null;
 
   hover: (id: string | null) => void;
-  focus: (id: string) => void;
+  /** Launch. No-op if we're already there or already on our way. */
+  travelTo: (id: string) => void;
+  /** Flight complete — hand the camera back to CameraRig. */
+  arrive: () => void;
   clearFocus: () => void;
 };
 
@@ -36,12 +41,29 @@ type SystemStore = {
  * useFrame. State that changes 60x a second does not belong in a store —
  * every write would re-render every subscriber.
  */
-export const useSystemStore = create<SystemStore>((set) => ({
+export const useSystemStore = create<SystemStore>((set, get) => ({
   phase: "system",
   hoveredId: null,
   focusedId: null,
+  travelToId: null,
 
   hover: (id) => set({ hoveredId: id }),
-  focus: (id) => set({ focusedId: id, phase: "focused" }),
-  clearFocus: () => set({ focusedId: null, phase: "system" }),
+
+  travelTo: (id) => {
+    const { phase, focusedId } = get();
+    // Re-clicking where you already are, or interrupting a flight already in
+    // progress, would strand the rocket mid-arc with a stale destination.
+    if (phase === "traveling" || focusedId === id) return;
+    set({ phase: "traveling", travelToId: id });
+  },
+
+  arrive: () =>
+    set((s) => ({
+      phase: "focused",
+      focusedId: s.travelToId ?? s.focusedId,
+      travelToId: null,
+    })),
+
+  clearFocus: () =>
+    set({ phase: "system", focusedId: null, travelToId: null }),
 }));
