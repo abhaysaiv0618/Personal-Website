@@ -645,34 +645,100 @@ Freesound or similar, or the toggle ships disabled. Muted by default either way.
 
 ---
 
-## Known bug — the canvas never sizes itself on load (blocks everything visual)
+## Open — the canvas fails to size itself when the page loads in a hidden tab
 
-**The scene is blank for every first-time visitor.** Found while verifying the
-route move; it predates that change and reproduces identically on the deployed
-`/system`, so it has been shipped this whole time.
+**Still unfixed. Three fixes were tried and all three failed; the third made
+things actively worse and was reverted.** The diagnosis below is re-measured and
+replaces the previous one in this section, which was wrong in two ways.
 
-Measured on a fresh load of the production build, after a 3s settle:
+### What is actually wrong
 
-| | canvas `getBoundingClientRect()` |
+R3F's `<Canvas>` only builds its renderer once `react-use-measure` reports a
+non-zero container. In the installed copy,
+`node_modules/@react-three/fiber/dist/react-three-fiber.cjs.dev.js:88`:
+
+```js
+if (containerRect.width > 0 && containerRect.height > 0 && canvas) {
+  if (!root.current) root.current = createRoot(canvas);
+```
+
+That first measurement is a race. When it is missed nothing retries, so the
+canvas keeps its intrinsic 300×150, the scene is invisible, and **nothing
+errors** — clean console, live WebGL context, `next build` perfectly happy.
+
+### Mistake 1: the container was never the problem
+
+This section previously blamed `SceneRoot`'s `h-[calc(100dvh-4rem)]` reporting
+zero height, and called `dvh` the prime suspect. Measured on the deployed build,
+the whole chain is correct at the moment the canvas is stuck at 300×150:
+
+| element | measured |
 |---|---|
-| on load | **300 × 150** — the HTML default canvas size |
-| after one `window.dispatchEvent(new Event('resize'))` | 1440 × 748, correct |
+| `SceneRoot` host | 606×709 ✅ |
+| R3F outer div | 606×709 ✅ |
+| R3F measured inner div | 606×709 ✅ |
+| `<canvas>` | **300×150** ❌ |
 
-R3F never measures its container on mount, so the canvas keeps the intrinsic
-300×150 default and the scene is invisible. Any resize fires the ResizeObserver,
-the canvas takes its real size, and everything renders correctly — sun, six
-planets, Saturn's rings, orbit ellipses, starfield, title card. Nothing is wrong
-with the scene itself.
+`dvh` is not involved. The container is fine; the *measurement* never lands.
 
-Not a stacking or occlusion problem: hiding `.cosmos3d` alone changes nothing,
-and `.cosmos3d` is `z-index:-10` behind a positioned canvas ancestor. Not a
-context loss: `gl.isContextLost()` is `false` and the drawing buffer is allocated.
-The console is clean apart from a `THREE.Clock` deprecation warning.
+### Mistake 2: it was never "every first-time visitor"
 
-Prime suspect is the measured container — `SceneRoot`'s
-`h-[calc(100dvh-4rem)]` — reporting zero height at the moment R3F measures,
-which is a known interaction between `dvh` units and `react-use-measure` under
-`ssr:false` dynamic import. Untested; that is the next thing to check.
+The original claim was that the scene is blank for everyone. It is not. A
+foreground load renders correctly every time, at every window size tried. It is
+blank when **the page loads while the tab is hidden**, where frame callbacks and
+observer delivery are deferred past R3F's one attempt — cmd-click, "open link in
+new tab", a restored session. Whether those visitors still see a blank page once
+they switch to the tab is the open question below, and is not yet established.
+
+The reason this went unnoticed so long is that every cheap way of checking hides
+it. `next build` never runs the page. Opening it yourself puts the tab in the
+foreground. Any screenshot tool resizes the viewport — and a resize is precisely
+what makes R3F measure correctly for the first time.
+
+### Three fixes tried, all failed
+
+| attempt | result |
+|---|---|
+| `resize={{ debounce: { scroll: 0, resize: 0 } }}` on `<Canvas>` — remove R3F's 50 ms debounce on the first measurement | no effect, canvas still 300×150 |
+| one `rAF`-timed `window.dispatchEvent(new Event("resize"))` after mount | no effect. A hidden tab does not run frame callbacks, so the nudge never fires — the same condition that causes the bug |
+| bounded `setInterval` poll dispatching `resize` until the canvas matched its container | **made it worse — reverted** |
+
+The third is the instructive one. `setInterval(…, 150)` is throttled to **1/s** in
+a hidden tab (measured: 4 fires in 3s, at 247/1246/2246/3246 ms), so it barely
+ran. Worse, dispatching `resize` synchronously from inside the mount effect makes
+`react-use-measure` call `setState` during the effect flush, and R3F rebuilt its
+root repeatedly — `THREE.Clock` deprecation warnings appeared 3× and 5× on single
+loads, one per renderer construction. The page ended up wedged badly enough that
+even a manual `resize` no longer recovered it, which it reliably had before.
+
+**Do not reach for another nudge-the-event-loop variant.** All three failures are
+the same shape: they fight the race instead of removing it.
+
+### What to try next
+
+Mount `<Canvas>` a tick after the container is laid out, so `react-use-measure`
+attaches its observer to an already-sized element instead of racing it:
+
+```tsx
+const [ready, setReady] = useState(false);
+useEffect(() => setReady(true), []);
+if (!ready) return null;
+```
+
+Failing that, upgrade `@react-three/fiber` (9.6.1 is behind `three@0.185.1` —
+the `THREE.Clock` warning is that skew) and re-test.
+
+**Before spending more on this, establish whether it affects a real visitor at
+all.** Every reproduction so far is in an automated tab that was `hidden` for the
+whole session and could never be brought to the foreground. A hidden tab does not
+run the rendering pipeline, so `ResizeObserver` may simply be holding a pending
+first delivery that arrives the moment the tab is shown — in which case R3F
+self-heals on reveal and no real user ever sees this. That is cheap to check by
+hand and was not checkable here: cmd-click the link into a background tab, wait,
+then switch to it.
+
+Verified separately: the scene renders correctly on a **foreground** load, at
+both 1440×727 and 620×717, on the deployed build with no fix at all.
 
 ## Open decisions
 
@@ -681,12 +747,12 @@ which is a known interaction between `dvh` units and `react-use-measure` under
    `lib/cut.ts` were then picked the same way. Deliberately deferred to a single
    tuning pass over both, rather than settling the flight and then discovering
    the landing changes what the flight should feel like.
-2. **Does the system read too small?** ⚠️ **The evidence behind this question was
-   an artifact of the canvas-sizing bug below.** "It depends on the window" was
-   observed by resizing — and resizing is precisely what makes the canvas size
-   itself correctly for the first time. Both readings were taken after a resize,
-   so the framing was never actually being judged at its on-load state, which was
-   blank. Re-open this only after that bug is fixed. Original note:
+2. **Does the system read too small?** ✅ **Now judgeable — re-open it.** This was
+   parked because the evidence was thought to be an artifact of the canvas-sizing
+   bug. That turned out to be a smaller problem than believed: the bug only bit on
+   background-tab loads, so foreground readings taken after a resize were showing
+   the real framing all along. The question was never actually blocked. Judge it
+   on a normal foreground load and settle it. Original note:
    dressing the sections as real bodies grew `SYSTEM_EXTENT` from 18.9 to 48.9,
    because Jupiter, Saturn and its rings need room the six equal balls did not.
    `BASE_SIZE` was raised to 1.8 to compensate, which recovers most of it — an
